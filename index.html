@@ -887,12 +887,13 @@ function calcularRetrasoDias(c) {
 }
 
 function esAdherente(c) {
-  return Math.abs(calcularRetrasoDias(c)) <= 30;
+  const dias = calcularRetrasoDias(c);
+  return dias <= 30; // anticipación siempre adherente; solo penaliza retraso >30 días
 }
 
 function calcularRetrasoAjustado(c) {
   const dias = calcularRetrasoDias(c);
-  return Math.abs(dias) <= 30 ? 0 : dias;
+  return dias <= 0 ? 0 : (dias <= 30 ? 0 : dias); // anticipación=0, ≤30=0, >30=valor real
 }
 
 function esSeguimientoPerdido(c) {
