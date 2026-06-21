@@ -548,6 +548,14 @@ async function actualizarDispositivo_(dispositivoId, cambios) {
   if (idx >= 0) Object.assign(dispositivos[idx], cambios);
 }
 
+// ===================== GUARDADO: DISPOSITIVOS (eliminar) =====================
+async function eliminarDispositivo_(id) {
+  await sbDelete('controles','dispositivo_id=eq.'+id);
+  await sbDelete('dispositivos','id=eq.'+id);
+  dispositivos = dispositivos.filter(d => d.id !== id);
+  controles    = controles.filter(c => c.dispositivoId !== id);
+}
+
 // ===================== GUARDADO: CONTROLES =====================
 async function guardarNuevoControl_(datos) {
   const id = 'C' + nextControlId; nextControlId++;
@@ -814,15 +822,6 @@ function addMonths(date, months) {
   return d;
 }
 
-function seedControles() {
-  function dLocal(n) {
-    const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+n); return d;
-  }
-  controles.push({id:'C0', pacienteId:'P2', dispositivoId:'D2', profesionalId:'PR1', fechaProgramada:dLocal(-185), fechaControl:dLocal(-180), proxControl:dLocal(5), proxMeses:6, bateriaAnios:'0', bateriaMeses:'7', eriProximo:'No', indicaciones:'Control habitual', riesgoManual:false, fase:null, fechaCarga:dLocal(-180)});
-  controles.push({id:'C-1', pacienteId:'P1', dispositivoId:'D1', profesionalId:'PR2', fechaProgramada:dLocal(-365), fechaControl:dLocal(-365), proxControl:dLocal(18), proxMeses:12, bateriaAnios:'4', bateriaMeses:'0', eriProximo:'No', indicaciones:'Sin novedades', riesgoManual:false, fase:null, fechaCarga:dLocal(-365)});
-  controles.push({id:'C-2', pacienteId:'P3', dispositivoId:'D3', profesionalId:'PR1', fechaProgramada:dLocal(-180), fechaControl:dLocal(-180), proxControl:dLocal(40), proxMeses:6, bateriaAnios:'2', bateriaMeses:'0', eriProximo:'No', indicaciones:'Sin novedades', riesgoManual:false, fase:null, fechaCarga:dLocal(-180)});
-}
-seedControles();
 
 /* ===================== ESTRATIFICACIÓN DE RIESGO ===================== */
 const PARAMS_POR_PERFIL = {
@@ -949,7 +948,7 @@ function getControlesPendientes() {
     const controlesPaciente = controles.filter(c=>c.pacienteId===pac.id);
     if (controlesPaciente.length === 0) return;
 
-    const ultimo = controlesPaciente.reduce((a,b) => new Date(a.fechaControl) > new Date(b.fechaControl) ? a : b);
+    const ultimo = controlesPaciente.reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b);
     const proxFecha = typeof ultimo.proxControl==='string' ? parseLocalDate(ultimo.proxControl) : new Date(ultimo.proxControl);
 
     if (proxFecha < hoy) {
@@ -1005,17 +1004,6 @@ function calcularRiesgo(c) {
 
 let nextAccionId = 1;
 
-function seedTurnos() {
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  const fechasAtencion = [];
-  for (let d = new Date(hoy), i=0; fechasAtencion.length < 4 && i < 40; d.setDate(d.getDate()+1), i++) {
-    if (AGENDA_CONFIG.diasAtencion.includes(d.getDay())) fechasAtencion.push(new Date(d));
-  }
-  turnosReservados.push({pacienteId:'P2', fecha: fechasAtencion[0], hora:'09:00', controlId:'C0', origen:'presencial'});
-  turnosReservados.push({pacienteId:'P1', fecha: fechasAtencion[0], hora:'09:20', controlId:'C-1', profesionalId:'PR2', origen:'presencial'});
-  turnosReservados.push({pacienteId:'P3', fecha: fechasAtencion[1], hora:'09:10', controlId:'C-2', profesionalId:'PR1', origen:'presencial'});
-}
-seedTurnos();
 
 function waLink(pac, fecha) {
   const appUrl = window.location.href.split('?')[0];
@@ -1074,7 +1062,7 @@ function renderDash() {
   enVentana.sort((a,b)=>a.dias-b.dias);
   vencidos.sort((a,b)=>a.dias-b.dias);
   proximos.sort((a,b)=>a.dias-b.dias);
-  conTurno.sort((a,b)=>new Date(a.turno.fecha)-new Date(b.turno.fecha));
+  conTurno.sort((a,b)=>{ const fa=typeof a.turno.fecha==='string'?a.turno.fecha:toInputDate(a.turno.fecha); const fb=typeof b.turno.fecha==='string'?b.turno.fecha:toInputDate(b.turno.fecha); return fa<fb?-1:fa>fb?1:0; });
 
   // Stats
   let html = `
@@ -1411,6 +1399,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
       const idx = AGENDA_CONFIG.diasAtencion.indexOf(dia);
       if (idx >= 0) AGENDA_CONFIG.diasAtencion.splice(idx, 1);
       else AGENDA_CONFIG.diasAtencion.push(dia);
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
       renderAgendaConfig(targetId);
     });
   });
@@ -1420,6 +1409,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     if (val && !AGENDA_CONFIG.horarios.includes(val)) {
       AGENDA_CONFIG.horarios.push(val);
       AGENDA_CONFIG.horarios.sort();
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
       renderAgendaConfig(targetId);
     }
   });
@@ -1429,6 +1419,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     if (val && !AGENDA_CONFIG.diasBloqueados.includes(val)) {
       AGENDA_CONFIG.diasBloqueados.push(val);
       AGENDA_CONFIG.diasBloqueados.sort();
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
       renderAgendaConfig(targetId);
     }
   });
@@ -1437,6 +1428,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     const val = parseInt(document.getElementById('cfg-turnos-online').value);
     if (val >= 0 && val <= 20) {
       TURNOS_ONLINE_POR_DIA = val;
+      guardarConfig_('TURNOS_ONLINE_POR_DIA', val);
       const ok = document.getElementById('cfg-turnos-online-ok');
       ok.style.display = 'inline';
       setTimeout(() => ok.style.display = 'none', 2000);
@@ -1447,6 +1439,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     const val = parseInt(document.getElementById('cfg-ventana-dias').value);
     if (val > 0 && val <= 90) {
       VENTANA_DIAS = val;
+      guardarConfig_('VENTANA_DIAS', val);
       const ok = document.getElementById('cfg-ventana-ok');
       ok.style.display = 'inline';
       setTimeout(() => ok.style.display = 'none', 2000);
@@ -1457,6 +1450,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     const val = parseInt(document.getElementById('cfg-horizonte-dias').value);
     if (val >= 7 && val <= 90) {
       HORIZONTE_TURNOS_DIAS = val;
+      guardarConfig_('HORIZONTE_TURNOS_DIAS', val);
       const ok = document.getElementById('cfg-horizonte-ok');
       ok.style.display = 'inline';
       setTimeout(() => ok.style.display = 'none', 2000);
@@ -1496,6 +1490,7 @@ function renderDiasBloqueados() {
   document.querySelectorAll('.btn-del-bloqueado').forEach(btn => {
     btn.addEventListener('click', () => {
       AGENDA_CONFIG.diasBloqueados = AGENDA_CONFIG.diasBloqueados.filter(d => d !== btn.dataset.d);
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
       renderAgenda();
     });
   });
@@ -1624,13 +1619,8 @@ function openModalAsignarTurno(fechaStr, hora) {
       msg.style.display='block'; msg.textContent='Ese horario ya está ocupado.'; return;
     }
     const controlActivo = controles.filter(c=>c.pacienteId===pacienteId).sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl))[0];
-    turnosReservados.push({
-      pacienteId,
-      fecha: parseLocalDate(fechaStr),
-      hora,
-      controlId: controlActivo?.id || null,
-      origen: 'presencial'
-    });
+    const _rAT = await reservarTurno_({pacienteId, fecha:fechaStr, hora, controlId:controlActivo?.id||'', origen:'presencial'});
+    if (!_rAT.ok) { msg.style.display='block'; msg.textContent=_rAT.error||'Horario ocupado.'; return; }
     content.style.maxWidth = '';
     closeModal();
     renderAgenda();
@@ -2056,7 +2046,7 @@ async function renderForm() {
       const controlesPrevios = controles.filter(c => c.pacienteId===pacienteId && c.dispositivoId===dispositivoId);
       let fechaProgramada = fechaControl;
       if (controlesPrevios.length > 0) {
-        const ultimo = controlesPrevios.reduce((a,b) => new Date(a.fechaControl) > new Date(b.fechaControl) ? a : b);
+        const ultimo = controlesPrevios.reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b);
         fechaProgramada = typeof ultimo.proxControl === 'string' ? parseLocalDate(ultimo.proxControl) : new Date(ultimo.proxControl);
       }
       let nuevoControl = {
@@ -2200,18 +2190,9 @@ function openModalPacienteSimple(onSaved) {
       msg.innerHTML = `Ya existe un paciente con ese DNI: <strong>${dniExistente.nombre}</strong>.`;
       return;
     }
-    const nuevo = {
-      id: 'P' + (nextPacienteId++),
-      nombre: `${apellido}, ${nombre}`,
-      dni,
-      tel: document.getElementById('mps-tel').value.trim(),
-      sexo: document.getElementById('mps-sexo').value,
-      fechaNacimiento: document.getElementById('mps-fechanac').value,
-      estado: 'Activo',
-      consentimiento: document.getElementById('mps-consentimiento').checked,
-      codigo: generarCodigo()
-    };
-    pacientes.push(nuevo);
+    const datosMPS = {nombre:`${apellido}, ${nombre}`, dni, tel:document.getElementById('mps-tel').value.trim(), sexo:document.getElementById('mps-sexo').value, fechaNacimiento:document.getElementById('mps-fechanac').value, estado:'Activo', consentimiento:document.getElementById('mps-consentimiento').checked};
+    const _rMPS = await guardarNuevoPaciente_(datosMPS);
+    const nuevo = {...datosMPS, id:_rMPS.id, codigo:_rMPS.codigo};
     closeModal();
     if (onSaved) onSaved(nuevo);
   });
@@ -2379,8 +2360,8 @@ function openModalDispositivo(onSaved) {
       msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Seleccioná un paciente válido, y completá marca y modelo.`;
       return;
     }
-    const nuevo = {id:'D'+(nextDispositivoId++), pacienteId, tipo, marca, modelo};
-    dispositivos.push(nuevo);
+    const _rMD = await guardarNuevoDispositivo_(pacienteId, {tipo, marca, modelo}, false);
+    const nuevo = {id:_rMD.id, pacienteId, tipo, marca, modelo, activo:true};
     closeModal();
     if (onSaved) onSaved(nuevo);
   });
@@ -2609,134 +2590,169 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
 async function openModalVistaPaciente(pacienteId) {
   const pac = pacientes.find(p=>p.id===pacienteId);
   if (!pac) return;
+
   const overlay = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
   overlay.classList.add('show');
-  content.style.maxWidth = '380px';
-  content.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-      <div style="font-size:12px; color:var(--mr-text-muted);">Vista del paciente · <strong>${pac.nombre}</strong></div>
-      <button id="cerrar-vista-pac" class="btn-secondary" style="font-size:12px; padding:4px 10px;">Cerrar</button>
-    </div>
-    <div id="modal-vista-pac-content"></div>
-  `;
-  document.getElementById('cerrar-vista-pac').addEventListener('click', () => {
-    content.style.maxWidth = '';
-    closeModal();
-  });
+  content.style.maxWidth = '400px';
 
-  // Renderizar vista paciente dentro del modal
-  const pacienteLogueadoAnterior = pacienteLogueado;
-  const turnoAnterior = turnoSeleccionadoPaciente;
-  // Buscar si este paciente ya tiene turno reservado
-  const turnoExistente = turnosReservados.find(t => t.pacienteId === pac.id);
-  turnoSeleccionadoPaciente = turnoExistente ? {fecha: turnoExistente.fecha, hora: turnoExistente.hora} : null;
-  pacienteLogueado = pac;
-  const tmpView = document.getElementById('modal-vista-pac-content');
-
+  // --- Calcular datos ---
   const controlesPac = controles.filter(c=>c.pacienteId===pac.id);
   if (controlesPac.length === 0) {
-    tmpView.innerHTML = `<div style="font-size:13px; color:var(--mr-text-muted); text-align:center; padding:1.5rem;">Este paciente no tiene controles registrados aún.</div>`;
-    pacienteLogueado = pacienteLogueadoAnterior;
+    content.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div style="font-size:12px;color:var(--mr-text-muted);">Vista del paciente · <strong>${pac.nombre}</strong></div>
+        <button id="cvp-cerrar" class="btn-secondary" style="font-size:12px;padding:4px 10px;">Cerrar</button>
+      </div>
+      <div style="font-size:13px;color:var(--mr-text-muted);text-align:center;padding:1.5rem;">Este paciente aún no tiene controles registrados.</div>`;
+    document.getElementById('cvp-cerrar').addEventListener('click',()=>{content.style.maxWidth='';closeModal();});
     return;
   }
 
   const controlActivo = controlesPac.reduce((a,b)=>diasRestantes(a.fechaControl)>diasRestantes(b.fechaControl)?a:b);
   const dispActivo = dispositivos.find(d=>d.id===controlActivo.dispositivoId);
   if (!dispActivo) {
-    tmpView.innerHTML = `<div style="font-size:13px; color:var(--mr-text-muted); text-align:center; padding:1.5rem;">Sin dispositivo activo asociado.</div>`;
-    pacienteLogueado = pacienteLogueadoAnterior;
+    content.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div style="font-size:12px;color:var(--mr-text-muted);">Vista del paciente · <strong>${pac.nombre}</strong></div>
+        <button id="cvp-cerrar" class="btn-secondary" style="font-size:12px;padding:4px 10px;">Cerrar</button>
+      </div>
+      <div style="font-size:13px;color:var(--mr-text-muted);text-align:center;padding:1.5rem;">Sin dispositivo activo asociado al último control.</div>`;
+    document.getElementById('cvp-cerrar').addEventListener('click',()=>{content.style.maxWidth='';closeModal();});
     return;
   }
+
   const tipo = TIPOS[dispActivo.tipo] || {nombre: dispActivo.tipo || 'Dispositivo', lapso: 12};
   const dias = diasRestantes(controlActivo.proxControl);
   const vencido = dias < 0;
-  const proximo30 = dias >= 0 && dias <= VENTANA_DIAS;
+  const proximo = dias >= 0 && dias <= VENTANA_DIAS;
 
-  let estado, alertaBg, alertaText, titulo, subtitulo, svgIcono;
+  let alertaBg, alertaText, titulo, subtitulo;
+  let mostrarTurnos = false;
   if (vencido) {
-    estado = 3; alertaBg = 'var(--mr-coral-bg)'; alertaText = 'var(--mr-coral-text)';
-    titulo = 'Tenés un control pendiente';
-    subtitulo = 'Te esperamos en el servicio. Reservá tu turno cuando puedas.';
-    svgIcono = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-  } else if (proximo30) {
-    estado = 2; alertaBg = 'var(--mr-amber-bg)'; alertaText = 'var(--mr-amber-text)';
-    titulo = 'Se acerca tu próximo control';
-    subtitulo = `Te toca venir a control en ${fmtMesAnio(controlActivo.proxControl)}. Reservá tu turno.`;
-    svgIcono = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+    alertaBg='var(--mr-coral-bg)'; alertaText='var(--mr-coral-text)';
+    titulo='Tenés un control pendiente';
+    subtitulo='Te esperamos en el servicio. Reservá tu turno cuando puedas.';
+    mostrarTurnos = true;
+  } else if (proximo) {
+    alertaBg='var(--mr-amber-bg)'; alertaText='var(--mr-amber-text)';
+    titulo='Se acerca tu próximo control';
+    subtitulo=`Te toca venir a control en ${fmtMesAnio(controlActivo.proxControl)}. Reservá tu turno.`;
+    mostrarTurnos = true;
   } else {
-    estado = 1; alertaBg = 'var(--mr-teal-bg)'; alertaText = 'var(--mr-teal-text)';
-    titulo = 'Todo en orden';
-    subtitulo = `Tu próximo control será en ${fmtMesAnio(controlActivo.proxControl)}.`;
-    svgIcono = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+    alertaBg='var(--mr-teal-bg)'; alertaText='var(--mr-teal-text)';
+    titulo='Todo en orden';
+    subtitulo=`Tu próximo control será en ${fmtMesAnio(controlActivo.proxControl)}.`;
   }
 
+  // --- Turno existente ---
+  const turnoExistente = turnosReservados.find(t=>t.pacienteId===pac.id);
+
+  // --- Batería ---
   const mesesRestantes = vidaBateriaEstimadaHoy(controlActivo);
   let bateriaHTML = '';
   if (mesesRestantes !== null) {
     let batColor, batLabel, batPct;
-    if (mesesRestantes <= 0) {
-      batColor='var(--mr-coral)'; batLabel='Batería crítica (ERI)'; batPct=5;
-    } else if (mesesRestantes <= 3) {
-      batColor='#E8650A'; batLabel='Batería con vida reducida'; batPct=20;
-    } else if (mesesRestantes <= 12) {
-      batColor='var(--mr-amber)'; batLabel='Batería con atención próxima'; batPct=45;
-    } else {
-      batColor='var(--mr-teal)'; batLabel='Batería en buen estado'; batPct=85;
-    }
-    bateriaHTML = `
-      <div style="margin-top:12px;">
-        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
-          <span style="font-weight:500; color:${batColor};">${batLabel}</span>
-          <span style="color:var(--mr-text-muted);">Estimado al día de hoy</span>
-        </div>
-        <div style="background:var(--mr-border); border-radius:4px; height:8px; overflow:hidden;">
-          <div style="width:${batPct}%; background:${batColor}; height:100%; border-radius:4px;"></div>
-        </div>
-      </div>`;
+    if (mesesRestantes <= 0)      { batColor='var(--mr-coral)';  batLabel='Batería crítica (ERI)';          batPct=5;  }
+    else if (mesesRestantes <= 3)  { batColor='#E8650A';          batLabel='Batería con vida reducida';       batPct=20; }
+    else if (mesesRestantes <= 12) { batColor='var(--mr-amber)';  batLabel='Batería con atención próxima';    batPct=45; }
+    else                           { batColor='var(--mr-teal)';   batLabel='Batería en buen estado';          batPct=85; }
+    bateriaHTML = `<div style="margin-top:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+        <span style="font-weight:500;color:${batColor};">${batLabel}</span>
+        <span style="color:var(--mr-text-muted);">Estimado al día de hoy</span>
+      </div>
+      <div style="background:var(--mr-border);border-radius:4px;height:8px;overflow:hidden;">
+        <div style="width:${batPct}%;background:${batColor};height:100%;border-radius:4px;"></div>
+      </div></div>`;
   }
 
-  const historial = controlesPac.sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl)).slice(0,3);
+  // --- Historial ---
+  const historial = [...controlesPac].sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl)).slice(0,3);
 
-  tmpView.innerHTML = `
+  // --- Sección de turno ---
+  let turnoHTML = '';
+  if (mostrarTurnos) {
+    if (turnoExistente) {
+      turnoHTML = `<div style="background:var(--mr-teal-bg);color:var(--mr-teal-text);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:6px;">✓ Turno reservado</div>
+        <div style="font-size:13px;text-transform:capitalize;">${fmtDateLong(turnoExistente.fecha)} a las ${turnoExistente.hora} hs</div>
+        <div style="font-size:12px;margin-top:4px;">${CONFIG_INSTITUCION.servicio} · ${CONFIG_INSTITUCION.institucion}</div>
+      </div>`;
+    } else {
+      // Generar selector de turnos
+      const hoy = new Date(); hoy.setHours(0,0,0,0);
+      const finH = new Date(hoy.getTime() + HORIZONTE_TURNOS_DIAS*86400000);
+      const horariosOnline = AGENDA_CONFIG.horarios.slice(0, TURNOS_ONLINE_POR_DIA);
+      const opciones = [];
+      for (let d = new Date(hoy); d <= finH; d.setDate(d.getDate()+1)) {
+        const fechaStr = toInputDate(d);
+        if (AGENDA_CONFIG.diasAtencion.includes(d.getDay()) && !AGENDA_CONFIG.diasBloqueados.includes(fechaStr)) {
+          const libres = horariosOnline.filter(h => !turnosReservados.some(t => t.fecha===fechaStr && t.hora===h));
+          if (libres.length > 0) opciones.push({fechaStr, libres, fechaLabel: fmtDateLong(fechaStr)});
+        }
+      }
+      if (opciones.length === 0) {
+        turnoHTML = `<div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:13px;color:var(--mr-text-muted);">No hay turnos disponibles en los próximos ${HORIZONTE_TURNOS_DIAS} días.</div>`;
+      } else {
+        let selectorHTML = `<div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+          <div style="font-weight:700;font-size:14px;color:var(--mr-primary);margin-bottom:10px;">Reservá tu turno</div>`;
+        opciones.forEach((op, i) => {
+          selectorHTML += `<div style="margin-bottom:${i<opciones.length-1?'10px':'0'};">
+            <div style="font-size:12px;color:var(--mr-text-muted);margin-bottom:4px;text-transform:capitalize;">${op.fechaLabel}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">`;
+          op.libres.forEach(h => {
+            selectorHTML += `<button class="cvp-btn-horario btn-secondary" data-fecha="${op.fechaStr}" data-hora="${h}" style="font-size:12px;padding:4px 10px;">${h}</button>`;
+          });
+          selectorHTML += `</div></div>`;
+        });
+        selectorHTML += `</div>`;
+        turnoHTML = selectorHTML;
+      }
+    }
+  }
+
+  // --- Render final ---
+  content.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <div style="font-size:12px;color:var(--mr-text-muted);">Vista del paciente · <strong>${pac.nombre}</strong></div>
+      <button id="cvp-cerrar" class="btn-secondary" style="font-size:12px;padding:4px 10px;">Cerrar</button>
+    </div>
     <div style="margin-bottom:1rem;">
-      <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:2px;">Hola,</div>
-      <div style="font-size:18px; font-weight:700;">${pac.nombre.split(', ')[1]} ${pac.nombre.split(', ')[0]}</div>
+      <div style="font-size:13px;color:var(--mr-text-muted);margin-bottom:2px;">Hola,</div>
+      <div style="font-size:18px;font-weight:700;">${pac.nombre.split(', ')[1]||''} ${pac.nombre.split(', ')[0]||pac.nombre}</div>
     </div>
-    <div style="background:${alertaBg}; color:${alertaText}; border-radius:10px; padding:1rem; margin-bottom:1rem;">
-      <div style="display:flex; align-items:flex-start; gap:12px;">
-        ${svgIcono}
-        <div>
-          <div style="font-weight:700; font-size:15px; margin-bottom:2px;">${titulo}</div>
-          <div style="font-size:13px;">${subtitulo}</div>
-        </div>
-      </div>
+    <div style="background:${alertaBg};color:${alertaText};border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:2px;">${titulo}</div>
+      <div style="font-size:13px;">${subtitulo}</div>
     </div>
-    <div id="turno-section" style="margin-bottom:1rem;"></div>
-    <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem; margin-bottom:1rem;">
-      <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:10px;">Mi dispositivo</div>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--mr-text-muted);"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-        <div>
-          <div style="font-size:14px; font-weight:700;">${tipo.nombre}</div>
-          <div style="font-size:12px; color:var(--mr-text-muted);">${dispActivo.marca}${dispActivo.modelo?' · '+dispActivo.modelo:''}</div>
-        </div>
-      </div>
+    ${turnoHTML}
+    <div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <div style="font-size:13px;color:var(--mr-text-muted);margin-bottom:10px;">Mi dispositivo</div>
+      <div style="font-size:14px;font-weight:700;">${tipo.nombre}</div>
+      <div style="font-size:12px;color:var(--mr-text-muted);">${dispActivo.marca}${dispActivo.modelo?' · '+dispActivo.modelo:''}</div>
       ${bateriaHTML}
     </div>
-    <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem;">
-      <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:8px;">Historial de controles</div>
+    <div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;">
+      <div style="font-size:13px;color:var(--mr-text-muted);margin-bottom:8px;">Historial de controles</div>
       ${historial.map(c=>`
-        <div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0; border-bottom:0.5px solid var(--mr-border);">
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:0.5px solid var(--mr-border);">
           <span>Control de dispositivo</span>
-          <span class="muted">${fmtDate(c.fechaControl)}</span>
+          <span style="color:var(--mr-text-muted);">${fmtDate(c.fechaControl)}</span>
         </div>`).join('')}
     </div>
   `;
 
-  await renderTurnoPaciente(controlActivo, pac, estado);
-  pacienteLogueado = pacienteLogueadoAnterior;
-  turnoSeleccionadoPaciente = turnoAnterior;
+  document.getElementById('cvp-cerrar').addEventListener('click',()=>{content.style.maxWidth='';closeModal();});
+
+  // Listeners de turno (solo si hay botones)
+  content.querySelectorAll('.cvp-btn-horario').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const res = await reservarTurno_({pacienteId:pac.id, fecha:btn.dataset.fecha, hora:btn.dataset.hora, controlId:controlActivo.id, origen:'presencial'});
+      if (!res.ok) { alert(res.error||'Ese horario ya no está disponible.'); return; }
+      openModalVistaPaciente(pacienteId); // Re-abrir con turno confirmado
+    });
+  });
 }
 
 // Definición de grupos visuales de parámetros
@@ -3067,7 +3083,7 @@ function openModalEditarPaciente(pacienteId) {
     </div>
   `;
   document.getElementById('ep-cancelar').addEventListener('click', closeModal);
-  document.getElementById('ep-guardar').addEventListener('click', () => {
+  document.getElementById('ep-guardar').addEventListener('click', async () => {
     const apellido = formatearApellido(document.getElementById('ep-apellido').value.trim());
     const nombre = formatearNombre(document.getElementById('ep-nombre').value.trim());
     const dni = document.getElementById('ep-dni').value.trim();
@@ -3077,13 +3093,9 @@ function openModalEditarPaciente(pacienteId) {
       msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Completá Apellido, Nombre y DNI.`;
       return;
     }
-    p.nombre = `${apellido}, ${nombre}`;
-    p.dni = dni;
-    p.sexo = document.getElementById('ep-sexo').value;
-    p.fechaNacimiento = document.getElementById('ep-fechanac').value;
-    p.tel = document.getElementById('ep-tel').value.trim();
-    p.estado = document.getElementById('ep-estado').value;
-    p.consentimiento = document.getElementById('ep-consentimiento').checked;
+    const cambiosEP = {nombre:`${apellido}, ${nombre}`, dni, sexo:document.getElementById('ep-sexo').value, fechaNacimiento:document.getElementById('ep-fechanac').value, tel:document.getElementById('ep-tel').value.trim(), estado:document.getElementById('ep-estado').value, consentimiento:document.getElementById('ep-consentimiento').checked};
+    Object.assign(p, cambiosEP);
+    actualizarPaciente_(p.id, cambiosEP).catch(e=>console.error(e));
     closeModal();
     const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
   });
@@ -3483,6 +3495,7 @@ function renderCfgInstitucion() {
     CONFIG_INSTITUCION.servicio = document.getElementById('cfg-inst-servicio').value.trim() || CONFIG_INSTITUCION.servicio;
     CONFIG_INSTITUCION.institucion = document.getElementById('cfg-inst-institucion').value.trim() || CONFIG_INSTITUCION.institucion;
     actualizarTextoInstitucional();
+    guardarConfig_('CONFIG_INSTITUCION', CONFIG_INSTITUCION);
     const ok = document.getElementById('cfg-inst-ok');
     ok.style.display = 'inline';
     setTimeout(() => ok.style.display = 'none', 2000);
@@ -3510,6 +3523,7 @@ function renderCfgInvestigacion() {
     FECHA_IMPLEMENTACION_STR = val;
     const [y,m,d] = val.split('-');
     FECHA_IMPLEMENTACION = new Date(+y, +m-1, +d);
+    guardarConfig_('FECHA_IMPLEMENTACION_STR', val);
     const ok = document.getElementById('cfg-fecha-corte-ok');
     ok.style.display = 'inline-flex';
     setTimeout(() => ok.style.display = 'none', 2000);
@@ -3876,8 +3890,10 @@ function openModalEditarProfesional(profId, targetId) {
       msg.innerHTML = `Completá Apellido y Nombre.`;
       return;
     }
-    prof.nombre = `${apellido}, ${nombre}`;
+    const nombreEPR = `${apellido}, ${nombre}`;
+    prof.nombre = nombreEPR;
     prof.dni = dni;
+    actualizarProfesional_(prof.id, nombreEPR, dni).catch(e=>console.error(e));
     closeModal();
     renderListaProfesionalesEn(targetId);
   });
@@ -3911,8 +3927,9 @@ function openModalProfesional(onSaved) {
       msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Completá Apellido y Nombre.`;
       return;
     }
-    const nuevo = {id:'PR'+(nextProfesionalId++), nombre:`${apellido}, ${nombre}`, dni};
-    profesionales.push(nuevo);
+    const nombreMPR = `${apellido}, ${nombre}`;
+    const _rMPR = await guardarNuevoProfesional_(nombreMPR, dni);
+    const nuevo = {id:_rMPR.id, nombre:nombreMPR, dni};
     closeModal();
     if (onSaved) onSaved(nuevo);
   });
@@ -4373,12 +4390,11 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
   view.innerHTML = html;
 
   document.querySelectorAll('.btn-horario').forEach(btn => {
-    btn.addEventListener('click', () => {
-      turnoSeleccionadoPaciente = {fecha: parseLocalDate(btn.dataset.fecha), hora: btn.dataset.hora};
-      const idxPac = turnosReservados.findIndex(t => t.controlId === controlActivo.id);
-      const nuevoTurnoPac = {pacienteId:pacienteActivo.id, fecha: turnoSeleccionadoPaciente.fecha, hora: turnoSeleccionadoPaciente.hora, controlId: controlActivo.id, origen: 'online'};
-      if (idxPac >= 0) turnosReservados[idxPac] = nuevoTurnoPac;
-      else turnosReservados.push(nuevoTurnoPac);
+    btn.addEventListener('click', async () => {
+      const _dtP = {pacienteId:pacienteActivo.id, fecha:btn.dataset.fecha, hora:btn.dataset.hora, controlId:controlActivo.id, origen:'online'};
+      const _rTP = await reservarTurno_(_dtP);
+      if (!_rTP.ok) { alert(_rTP.error||'Ese horario ya no está disponible.'); renderTurnoPaciente(controlActivo, pacienteActivo, estado); return; }
+      turnoSeleccionadoPaciente = {fecha: btn.dataset.fecha, hora: btn.dataset.hora};
       renderTurnoPaciente(controlActivo, pacienteActivo, estado);
     });
   });
