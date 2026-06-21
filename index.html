@@ -790,9 +790,17 @@ function diasRestantes(fecha) {
 }
 function toInputDate(d) {
   if (!d) return '';
-  const dt = new Date(d);
-  const off = dt.getTimezoneOffset();
-  return new Date(dt.getTime() - off*60000).toISOString().split('T')[0];
+  // Si ya es string YYYY-MM-DD, devolver directo (evita bug UTC)
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  // Si es Date local, formatear sin conversión UTC
+  if (d instanceof Date) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  }
+  // Fallback: string con hora, tomar solo la fecha
+  return String(d).slice(0,10);
 }
 function addMonths(date, months) {
   const d = new Date(date);
