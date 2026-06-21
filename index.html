@@ -2600,7 +2600,7 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
   });
 }
 
-function openModalVistaPaciente(pacienteId) {
+async function openModalVistaPaciente(pacienteId) {
   const pac = pacientes.find(p=>p.id===pacienteId);
   if (!pac) return;
   const overlay = document.getElementById('modal-overlay');
@@ -2621,6 +2621,10 @@ function openModalVistaPaciente(pacienteId) {
 
   // Renderizar vista paciente dentro del modal
   const pacienteLogueadoAnterior = pacienteLogueado;
+  const turnoAnterior = turnoSeleccionadoPaciente;
+  // Buscar si este paciente ya tiene turno reservado
+  const turnoExistente = turnosReservados.find(t => t.pacienteId === pac.id);
+  turnoSeleccionadoPaciente = turnoExistente ? {fecha: turnoExistente.fecha, hora: turnoExistente.hora} : null;
   pacienteLogueado = pac;
   const tmpView = document.getElementById('modal-vista-pac-content');
 
@@ -2724,8 +2728,9 @@ function openModalVistaPaciente(pacienteId) {
     </div>
   `;
 
-  renderTurnoPaciente(controlActivo, pac, estado);
+  await renderTurnoPaciente(controlActivo, pac, estado);
   pacienteLogueado = pacienteLogueadoAnterior;
+  turnoSeleccionadoPaciente = turnoAnterior;
 }
 
 // Definición de grupos visuales de parámetros
