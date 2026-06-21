@@ -387,6 +387,57 @@ function cerrarSesion() {
   document.getElementById('login-msg').style.display = 'none';
 }
 
+function calcularEdad(fechaNacimiento) {
+  if (!fechaNacimiento) return null;
+  const hoy = new Date();
+  const nac = new Date(fechaNacimiento);
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  if (hoy.getMonth() < nac.getMonth() || (hoy.getMonth()===nac.getMonth() && hoy.getDate()<nac.getDate())) edad--;
+  return edad;
+}
+
+function formatearNombre(str) {
+  return str.trim().split(/\s+/).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+}
+
+function formatearApellido(str) {
+  return str.trim().toUpperCase();
+}
+
+function pacienteSelectorHTML(id, datalistId) {
+  let options = pacientes.map(p=>`<option data-id="${p.id}" value="${p.nombre} (DNI ${p.dni})"></option>`).join('');
+  return `
+    <input type="text" id="${id}" list="${datalistId}" autocomplete="off" placeholder="Escribí para buscar...">
+    <datalist id="${datalistId}">${options}</datalist>
+    <input type="hidden" id="${id}-id">
+  `;
+}
+
+function bindPacienteSelector(id) {
+  const input = document.getElementById(id);
+  const hidden = document.getElementById(id+'-id');
+  function resolve() {
+    const val = input.value;
+    const pac = pacientes.find(p => `${p.nombre} (DNI ${p.dni})` === val);
+    const prev = hidden.value;
+    hidden.value = pac ? pac.id : '';
+    if (hidden.value !== prev) input.dispatchEvent(new Event('change'));
+  }
+  input.addEventListener('input', resolve);
+  input.addEventListener('change', resolve);
+}
+
+function setPacienteSelector(id, pacienteId) {
+  const pac = pacientes.find(p=>p.id===pacienteId);
+  if (!pac) return;
+  document.getElementById(id).value = `${pac.nombre} (DNI ${pac.dni})`;
+  document.getElementById(id+'-id').value = pac.id;
+}
+
+function getPacienteSelector(id) {
+  return document.getElementById(id+'-id').value;
+}
+
 
 const DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const DIAS_SEMANA_CORTOS = ['dom','lun','mar','mié','jue','vie','sáb'];
