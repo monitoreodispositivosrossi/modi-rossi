@@ -363,6 +363,8 @@ const TIPOS = { T1:{nombre:'Marcapasos',lapso:12}, T2:{nombre:'CDI',lapso:6}, T3
 
 let pacientes = [], dispositivos = [], controles = [], turnosReservados = [], accionesContacto = [], profesionales = [];
 let profesionalLogueado = null, pacienteLogueado = null, controlEditandoId = null;
+let _submitRunning = false;
+let _submitAbort = null;
 let parametrosTecnicosTemp = {};
 let nextPacienteId = 1, nextDispositivoId = 1, nextControlId = 1, nextProfesionalId = 4, nextCodigoNum = 1;
 
@@ -2018,8 +2020,12 @@ async function renderForm() {
     });
   });
 
-  let _submitRunning = false;
+    // Cancelar listener anterior para evitar acumulación
+  if (_submitAbort) _submitAbort.abort();
+  _submitAbort = new AbortController();
+  const _signal = _submitAbort.signal;
   document.getElementById('f-submit').addEventListener('click', async () => {
+    if (_signal.aborted) return;
     if (_submitRunning) return;
     _submitRunning = true;
     const fechaControlVal = document.getElementById('f-fechacontrol').value;
