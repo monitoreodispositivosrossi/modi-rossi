@@ -2009,7 +2009,7 @@ async function renderForm() {
 
   document.getElementById('f-nuevo-paciente')?.addEventListener('click', () => {
     openModalPaciente((nuevo) => {
-      renderForm();
+      // No llamar renderForm() — solo actualizar el selector para evitar doble listener
       setTimeout(() => {
         setPacienteSelector('f-paciente', nuevo.id);
         document.getElementById('f-paciente').dispatchEvent(new Event('change'));
@@ -2017,7 +2017,10 @@ async function renderForm() {
     });
   });
 
+  let _submitRunning = false;
   document.getElementById('f-submit').addEventListener('click', async () => {
+    if (_submitRunning) return;
+    _submitRunning = true;
     const fechaControlVal = document.getElementById('f-fechacontrol').value;
     const mesesVal = document.getElementById('f-proxmeses').value;
     const msg = document.getElementById('f-msg');
@@ -2133,7 +2136,8 @@ async function renderForm() {
     document.getElementById('modal-ctrl-hc').addEventListener('click', () => {
       content.style.maxWidth = '';
       closeModal();
-      openModalResumenControl(controlGuardado.id, () => showView('pac'));
+      _submitRunning = false;
+    openModalResumenControl(controlGuardado.id, () => showView('pac'));
     });
     document.getElementById('modal-ctrl-pac').addEventListener('click', () => {
       content.style.maxWidth = '';
