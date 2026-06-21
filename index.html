@@ -425,7 +425,7 @@ function mapCtrl(c) {
     bateriaAnios: String(c.bateria_anios||''), bateriaMeses: String(c.bateria_meses||''),
     eriProximo: String(c.eri_proximo||'No'), parametrosTecnicos: c.parametros_tecnicos||{},
     fase: c.fase||null, indicaciones: String(c.indicaciones||''),
-    riesgoManual: c.riesgo_manual === true, fechaCarga: c.fecha_carga||''
+    riesgoManual: c.riesgo_manual === true, fechaCarga: c.fecha_carga ? String(c.fecha_carga) : ''
   };
 }
 function mapTurno(t) {
@@ -571,7 +571,8 @@ async function guardarNuevoControl_(datos) {
     bateria_anios: datos.bateriaAnios||'', bateria_meses: datos.bateriaMeses||'',
     eri_proximo: datos.eriProximo||'No', parametros_tecnicos: datos.parametrosTecnicos||{},
     fase: datos.fase||null, indicaciones: datos.indicaciones||'',
-    riesgo_manual: !!datos.riesgoManual
+    riesgo_manual: !!datos.riesgoManual,
+    fecha_carga: new Date().toISOString()
   };
   await sbInsert('controles', row);
   controles.push(mapCtrl(row));
@@ -2111,7 +2112,7 @@ async function renderForm() {
         fase: null,
         indicaciones: document.getElementById('f-indicaciones').value,
         riesgoManual: document.getElementById('f-riesgo-manual').checked,
-        fechaCarga: new Date()
+        fechaCarga: new Date().toISOString()
       };
       const _rCtrl = await guardarNuevoControl_(nuevoControl);
       nuevoControl.id = _rCtrl.id;
@@ -4109,7 +4110,7 @@ function getDatosInvestigacion() {
       accion: accion ? `${accion.tipo} - ${accion.resultado}` : '-',
       aptoAnalisis: (incompleto.length===0 && pac.estado==='Activo' && pac.consentimiento===true) ? 'Sí' : 'No',
       motivoExclusion: incompleto.length ? `Faltan: ${incompleto.join(', ')}` : (pac.estado!=='Activo' ? `Paciente ${pac.estado}` : ''),
-      fechaCarga: c.fechaCarga || c.fechaControl
+      fechaCarga: c.fechaCarga || ''
     };
   });
 
@@ -4138,7 +4139,7 @@ function getDatosInvestigacion() {
       accion: accion ? `${accion.tipo} - ${accion.resultado}` : '-',
       aptoAnalisis: (incompleto.length===0 && p.paciente.estado==='Activo' && p.paciente.consentimiento===true) ? 'Sí' : 'No',
       motivoExclusion: incompleto.length ? `Faltan: ${incompleto.join(', ')}` : (p.paciente.estado!=='Activo' ? `Paciente ${p.paciente.estado}` : ''),
-      fechaCarga: ultimo.fechaCarga || ultimo.fechaControl
+      fechaCarga: ultimo.fechaCarga || ''
     };
   });
 
