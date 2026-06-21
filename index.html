@@ -402,7 +402,7 @@ function mapPac(p) {
 function mapDisp(d) {
   // Normalizar tipo: puede venir como clave 'T1' o como nombre 'Marcapasos'
   let tipoNorm = String(d.tipo||'');
-  if (tipoNorm && !TIPOS[tipoNorm]) {
+  if (tipoNorm && !TIPOS[tipoNorm] || {nombre:tipoNorm||'?', lapso:12}) {
     const found = Object.keys(TIPOS).find(k => TIPOS[k].nombre === tipoNorm);
     if (found) tipoNorm = found;
   }
@@ -477,7 +477,7 @@ async function cargarDataset() {
 function generarCodigo() {
   const c = 'MR-' + String(nextCodigoNum).padStart(4,'0');
   nextCodigoNum++;
-  sbUpdate('contadores','clave=eq.nextCodigoNum',{valor:nextCodigoNum});
+  sbUpdate('contadores','clave=eq.nextCodigoNum',{valor:nextCodigoNum}).catch(e=>console.error('contador codigo:',e));
   return c;
 }
 
@@ -806,7 +806,7 @@ function diasRestantes(fecha) {
     const [y,m,d] = fecha.split('-');
     f = new Date(+y, +m-1, +d);
   } else {
-    f = new Date(fecha);
+    f = _parseFmt(fecha);
   }
   f.setHours(0,0,0,0);
   return Math.round((f.getTime() - hoy.getTime()) / 86400000);
@@ -870,8 +870,8 @@ function getParamsParaPerfil(perfil) {
 
 function calcularRetrasoDias(c) {
   if (!c.fechaProgramada || !c.fechaControl) return 0;
-  const prog = typeof c.fechaProgramada==='string' && /^\d{4}-\d{2}-\d{2}$/.test(c.fechaProgramada) ? parseLocalDate(c.fechaProgramada) : new Date(c.fechaProgramada);
-  const real = typeof c.fechaControl==='string' && /^\d{4}-\d{2}-\d{2}$/.test(c.fechaControl) ? parseLocalDate(c.fechaControl) : new Date(c.fechaControl);
+  const prog = _parseFmt(c.fechaProgramada);
+  const real = _parseFmt(c.fechaControl);
   prog.setHours(0,0,0,0); real.setHours(0,0,0,0);
   return Math.round((real.getTime() - prog.getTime()) / 86400000);
 }
@@ -891,8 +891,8 @@ function esSeguimientoPerdido(c) {
 
 function calcularRetrasoMeses(c) {
   if (!c.fechaProgramada || !c.fechaControl) return 0;
-  const prog = typeof c.fechaProgramada==='string' ? parseLocalDate(c.fechaProgramada) : new Date(c.fechaProgramada);
-  const real = typeof c.fechaControl==='string' ? parseLocalDate(c.fechaControl) : new Date(c.fechaControl);
+  const prog = _parseFmt(c.fechaProgramada);
+  const real = _parseFmt(c.fechaControl);
   const meses = (real.getFullYear()-prog.getFullYear())*12 + (real.getMonth()-prog.getMonth());
   return Math.max(0, meses);
 }
@@ -926,7 +926,7 @@ function vidaBateriaEstimadaHoy(c) {
   if (!totalMeses) return null;
   const fechaControl = typeof c.fechaControl === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c.fechaControl)
     ? (() => { const [y,m,d] = c.fechaControl.split('-'); return new Date(+y,+m-1,+d); })()
-    : new Date(c.fechaControl);
+    : _parseFmt(c.fechaControl);
   const hoy = new Date();
   const mesesTranscurridos = (hoy.getFullYear() - fechaControl.getFullYear()) * 12 + (hoy.getMonth() - fechaControl.getMonth());
   return Math.max(0, totalMeses - mesesTranscurridos);
@@ -934,7 +934,7 @@ function vidaBateriaEstimadaHoy(c) {
 
 function calcularFase(c) {
   if (c.fase) return c.fase;
-  const _fc = typeof c.fechaControl==='string' && /^\d{4}-\d{2}-\d{2}$/.test(c.fechaControl) ? parseLocalDate(c.fechaControl) : new Date(c.fechaControl);
+  const _fc = _parseFmt(c.fechaControl);
   return _fc < FECHA_IMPLEMENTACION ? 'Retrospectivo' : 'Prospectivo';
 }
 
@@ -957,8 +957,8 @@ function getControlesPendientes() {
     const controlesPaciente = controles.filter(c=>c.pacienteId===pac.id);
     if (controlesPaciente.length === 0) return;
 
-    const ultimo = controlesPaciente.reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b);
-    const proxFecha = typeof ultimo.proxControl==='string' ? parseLocalDate(ultimo.proxControl) : new Date(ultimo.proxControl);
+    const ultimo = controlesPaciente.reduce((a,b) => diasRestantes(a.fechaControl) > diasRestantes(b.fechaControl) ? a : b);
+    const proxFecha = _parseFmt(ultimo.proxControl);
 
     if (proxFecha < hoy) {
       const diasAtraso = -diasRestantes(proxFecha);
@@ -1039,12 +1039,12 @@ function renderDash() {
     if (controlesPac.length === 0) return;
     // Tomar el control con fechaControl más reciente
     const c = controlesPac.reduce((mas, c2) => {
-      const d1 = typeof mas.fechaControl === 'string' ? parseLocalDate(mas.fechaControl) : new Date(mas.fechaControl);
-      const d2 = typeof c2.fechaControl === 'string' ? parseLocalDate(c2.fechaControl) : new Date(c2.fechaControl);
+      const d1 = _parseFmt(mas.fechaControl);
+      const d2 = _parseFmt(c2.fechaControl);
       return d2 > d1 ? c2 : mas;
     });
     // Ignorar si la fecha del control es futura
-    const fechaCtrl = typeof c.fechaControl === 'string' ? parseLocalDate(c.fechaControl) : new Date(c.fechaControl);
+    const fechaCtrl = _parseFmt(c.fechaControl);
     fechaCtrl.setHours(0,0,0,0);
     if (fechaCtrl > hoy) return;
 
@@ -1071,7 +1071,7 @@ function renderDash() {
   enVentana.sort((a,b)=>a.dias-b.dias);
   vencidos.sort((a,b)=>a.dias-b.dias);
   proximos.sort((a,b)=>a.dias-b.dias);
-  conTurno.sort((a,b)=>{ const fa=typeof a.turno.fecha==='string'?a.turno.fecha:toInputDate(a.turno.fecha); const fb=typeof b.turno.fecha==='string'?b.turno.fecha:toInputDate(b.turno.fecha); return fa<fb?-1:fa>fb?1:0; });
+  conTurno.sort((a,b)=>{ const fa=toInputDate(a.turno.fecha); const fb=toInputDate(b.turno.fecha); return fa<fb?-1:fa>fb?1:0; });
 
   // Stats
   let html = `
@@ -1130,7 +1130,7 @@ function renderDash() {
   } else {
     conTurno.forEach(a => {
       const disp = dispositivos.find(d=>d.id===a.control.dispositivoId);
-      const tipo = disp ? TIPOS[disp.tipo] : {};
+      const tipo = disp ? (TIPOS[disp.tipo] || {nombre:disp.tipo||'?',lapso:12}) : {};
       html += `
         <div class="control-row">
           <div>
@@ -1159,7 +1159,7 @@ function renderDash() {
   } else {
     proximos.forEach(a => {
       const disp = dispositivos.find(d=>d.id===a.control.dispositivoId);
-      const tipo = disp ? TIPOS[disp.tipo] : {};
+      const tipo = disp ? (TIPOS[disp.tipo] || {nombre:disp.tipo||'?',lapso:12}) : {};
       html += `
         <div class="control-row">
           <div>
@@ -1203,7 +1203,7 @@ function alertaHTML(a, cls) {
       ${(() => {
         if (!a.turno) return `<div class="alert-sub" style="margin-top:2px;">Sin turno reservado aún</div>`;
         const hoy = new Date(); hoy.setHours(0,0,0,0);
-        const fechaTurno = new Date(a.turno.fecha); fechaTurno.setHours(0,0,0,0);
+        const fechaTurno = _parseFmt(a.turno.fecha); fechaTurno.setHours(0,0,0,0);
         const turnoVencido = fechaTurno < hoy;
         if (!turnoVencido) {
           return `<div style="margin-top:6px; display:inline-flex; align-items:center; gap:6px; background:var(--mr-teal-bg); color:var(--mr-teal-text); border-radius:6px; padding:5px 10px; font-size:12px; font-weight:600;">
@@ -1408,7 +1408,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
       const idx = AGENDA_CONFIG.diasAtencion.indexOf(dia);
       if (idx >= 0) AGENDA_CONFIG.diasAtencion.splice(idx, 1);
       else AGENDA_CONFIG.diasAtencion.push(dia);
-      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG).catch(e=>console.error('cfg AGENDA_CONFIG:',e));
       renderAgendaConfig(targetId);
     });
   });
@@ -1418,7 +1418,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     if (val && !AGENDA_CONFIG.horarios.includes(val)) {
       AGENDA_CONFIG.horarios.push(val);
       AGENDA_CONFIG.horarios.sort();
-      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG).catch(e=>console.error('cfg AGENDA_CONFIG:',e));
       renderAgendaConfig(targetId);
     }
   });
@@ -1428,7 +1428,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     if (val && !AGENDA_CONFIG.diasBloqueados.includes(val)) {
       AGENDA_CONFIG.diasBloqueados.push(val);
       AGENDA_CONFIG.diasBloqueados.sort();
-      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG).catch(e=>console.error('cfg AGENDA_CONFIG:',e));
       renderAgendaConfig(targetId);
     }
   });
@@ -1437,7 +1437,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     const val = parseInt(document.getElementById('cfg-turnos-online').value);
     if (val >= 0 && val <= 20) {
       TURNOS_ONLINE_POR_DIA = val;
-      guardarConfig_('TURNOS_ONLINE_POR_DIA', val);
+      guardarConfig_('TURNOS_ONLINE_POR_DIA', val).catch(e=>console.error('cfg TURNOS_ONLINE_POR_DIA:',e));
       const ok = document.getElementById('cfg-turnos-online-ok');
       ok.style.display = 'inline';
       setTimeout(() => ok.style.display = 'none', 2000);
@@ -1448,7 +1448,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     const val = parseInt(document.getElementById('cfg-ventana-dias').value);
     if (val > 0 && val <= 90) {
       VENTANA_DIAS = val;
-      guardarConfig_('VENTANA_DIAS', val);
+      guardarConfig_('VENTANA_DIAS', val).catch(e=>console.error('cfg VENTANA_DIAS:',e));
       const ok = document.getElementById('cfg-ventana-ok');
       ok.style.display = 'inline';
       setTimeout(() => ok.style.display = 'none', 2000);
@@ -1459,7 +1459,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     const val = parseInt(document.getElementById('cfg-horizonte-dias').value);
     if (val >= 7 && val <= 90) {
       HORIZONTE_TURNOS_DIAS = val;
-      guardarConfig_('HORIZONTE_TURNOS_DIAS', val);
+      guardarConfig_('HORIZONTE_TURNOS_DIAS', val).catch(e=>console.error('cfg HORIZONTE_TURNOS_DIAS:',e));
       const ok = document.getElementById('cfg-horizonte-ok');
       ok.style.display = 'inline';
       setTimeout(() => ok.style.display = 'none', 2000);
@@ -1499,7 +1499,7 @@ function renderDiasBloqueados() {
   document.querySelectorAll('.btn-del-bloqueado').forEach(btn => {
     btn.addEventListener('click', () => {
       AGENDA_CONFIG.diasBloqueados = AGENDA_CONFIG.diasBloqueados.filter(d => d !== btn.dataset.d);
-      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG).catch(e=>console.error('cfg AGENDA_CONFIG:',e));
       renderAgenda();
     });
   });
@@ -1528,7 +1528,7 @@ async function renderTablaTurnos() {
   ordenados.forEach((t, idx) => {
     const pac = pacientes.find(p=>p.id===t.pacienteId);
     const disp = dispositivos.find(d=>d.pacienteId===t.pacienteId && d.activo);
-    const tipoNombre = disp ? TIPOS[disp.tipo]?.nombre : '-';
+    const tipoNombre = disp ? (TIPOS[disp.tipo]?.nombre || disp.tipo || '?') : '-';
     const marcaNombre = disp ? disp.marca : '-';
     const idxReal = turnosReservados.indexOf(t);
     html += `
@@ -1759,7 +1759,7 @@ async function renderForm() {
   const editando = controlEditandoId ? controles.find(c => c.id === controlEditandoId) : null;
   const modoEdicion = !!editando;
 
-  view.innerHTML = `
+  view.innerHTML = `<div style="max-width:600px; margin:0 auto;">
     ${modoEdicion ? `<div style="background:var(--mr-amber-bg); color:var(--mr-amber-text); border:1px solid var(--mr-amber-text); border-radius:8px; padding:10px 14px; margin-bottom:1rem; font-size:13px; display:flex; align-items:center; gap:8px;">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Estás editando el control del <strong>${fmtDate(editando.fechaControl)}</strong>. Los cambios sobreescribirán el registro existente.
@@ -1843,7 +1843,7 @@ async function renderForm() {
       <button id="f-submit" class="btn-primary">${modoEdicion ? 'Guardar cambios' : 'Guardar control'}</button>
       <div id="f-msg" class="msg"></div>
     </div>
-  `;
+  </div>`;
 
   document.getElementById('f-fechacontrol').value = modoEdicion ? toInputDate(editando.fechaControl) : toInputDate(new Date());
   if (modoEdicion) {
@@ -1903,7 +1903,7 @@ async function renderForm() {
     const fechaImplanteInput = document.getElementById('f-fecha-implante');
 
     if (disp) {
-      const tipo = TIPOS[disp.tipo];
+      const tipo = TIPOS[disp.tipo] || {nombre: disp.tipo||'Dispositivo', lapso:12};
       display.textContent = `${tipo.nombre}${disp.subtipo ? ' · '+disp.subtipo : ''} · ${disp.marca}${disp.modelo ? ' · '+disp.modelo : ''}`;
       display.style.color = 'var(--color-text-primary)';
       hidden.value = disp.id;
@@ -2055,8 +2055,8 @@ async function renderForm() {
       const controlesPrevios = controles.filter(c => c.pacienteId===pacienteId && c.dispositivoId===dispositivoId);
       let fechaProgramada = fechaControl;
       if (controlesPrevios.length > 0) {
-        const ultimo = controlesPrevios.reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b);
-        fechaProgramada = typeof ultimo.proxControl === 'string' ? parseLocalDate(ultimo.proxControl) : new Date(ultimo.proxControl);
+        const ultimo = controlesPrevios.reduce((a,b) => diasRestantes(a.fechaControl) > diasRestantes(b.fechaControl) ? a : b);
+        fechaProgramada = _parseFmt(ultimo.proxControl);
       }
       let nuevoControl = {
         id:'C'+(nextControlId),
@@ -2091,7 +2091,7 @@ async function renderForm() {
       const nuevoMotivo = getMotivoValue('f-motivo-implante');
       if (nuevoMotivo !== undefined) dispActualizar.motivoImplante = nuevoMotivo;
       const _cd={}; if(nuevoSubtipo!==undefined)_cd.subtipo=nuevoSubtipo; if(nuevaFecha!==undefined)_cd.fechaImplante=nuevaFecha; if(nuevoMotivo!==undefined)_cd.motivoImplante=nuevoMotivo;
-      if(Object.keys(_cd).length) actualizarDispositivo_(dispositivoId,_cd).catch(e=>console.error(e));
+      if(Object.keys(_cd).length) actualizarDispositivo_(dispositivoId,_cd).catch(e=>console.error('actualizarDisp:',e));
     }
 
     renderDash();
@@ -2287,14 +2287,15 @@ function openModalPaciente(onSaved) {
       <h3>Nuevo paciente <span style="font-size:12px; color:var(--mr-text-muted); font-weight:400;">Paso 2 de 2 · Dispositivo inicial</span></h3>
       <div class="field"><label>Tipo de dispositivo</label><select id="mp-disp-tipo">${tipoOptions}</select></div>
       ${subtipoDispHTML('mp-disp')}
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-        <div class="field"><label>Marca</label><select id="mp-disp-marca"></select></div>
+      <div class="field"><label>Marca</label><select id="mp-disp-marca"></select></div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
         <div class="field"><label>Modelo</label><input type="text" id="mp-disp-modelo"></div>
         <div class="field"><label>Número de serie</label><input type="text" id="mp-disp-serie" placeholder="Opcional"></div>
       </div>
-      <div class="field"><label>Fecha de implante</label><input type="date" id="mp-disp-fechaimplante"></div>
-      <div class="field"><label>Motivo del implante</label>${motivoSelectorHTML('mp-disp-motivoimplante')}</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="field"><label>Fecha de implante</label><input type="date" id="mp-disp-fechaimplante"></div>
+        <div class="field"><label>Motivo del implante</label>${motivoSelectorHTML('mp-disp-motivoimplante')}</div>
+      </div>
       <div id="mp-msg2" class="msg err" style="display:none;"></div>
       <div style="display:flex; gap:8px;">
         <button id="mp-guardar" class="btn-primary">Guardar paciente y dispositivo</button>
@@ -2503,7 +2504,7 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
   pacientesFiltrados.forEach(p => {
     const dispActivo = getDispositivoActivo(p.id);
     const historial = dispositivos.filter(d=>d.pacienteId===p.id && !d.activo);
-    const tipoActivo = dispActivo ? TIPOS[dispActivo.tipo] : null;
+    const tipoActivo = dispActivo ? (TIPOS[dispActivo.tipo] || {nombre:dispActivo.tipo||'?',lapso:12}) : null;
     const borderColors = { T1:'#2E75B6', T2:'#C2185B', T3:'#00796B', T4:'#7B1FA2' };
     const borderColor = dispActivo ? (borderColors[dispActivo.tipo] || '#ccc') : '#ccc';
     html += `
@@ -2550,7 +2551,7 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
             <button class="btn-primary btn-add-disp" data-pac="${p.id}" style="font-size:12px; padding:6px 12px; margin-bottom:8px;">+ Agregar dispositivo</button>`}
           ${historial.length > 0 ? `
             <div style="font-weight:700; font-size:12px; color:var(--mr-text-muted); margin-bottom:4px; margin-top:4px;">Historial de recambios</div>
-            ${historial.map(d=>`<div style="border:0.5px solid var(--mr-border); border-radius:8px; padding:0.5rem 0.8rem; background:#fff; font-size:12px; color:var(--mr-text-muted); margin-bottom:4px;">${TIPOS[d.tipo].nombre} · ${d.marca} ${d.modelo}${d.fechaRecambio ? ' · Reemplazado: '+fmtDate(d.fechaRecambio) : ''}</div>`).join('')}` : ''}
+            ${historial.map(d=>`<div style="border:0.5px solid var(--mr-border); border-radius:8px; padding:0.5rem 0.8rem; background:#fff; font-size:12px; color:var(--mr-text-muted); margin-bottom:4px;">${TIPOS[d.tipo] || {nombre:d.tipo||'?', lapso:12}.nombre} · ${d.marca} ${d.modelo}${d.fechaRecambio ? ' · Reemplazado: '+fmtDate(d.fechaRecambio) : ''}</div>`).join('')}` : ''}
         </div>
         ${(() => {
           const ultControl = controles.filter(c=>c.pacienteId===p.id).sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl))[0];
@@ -2679,47 +2680,49 @@ async function openModalVistaPaciente(pacienteId) {
   // --- Historial ---
   const historial = [...controlesPac].sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl)).slice(0,3);
 
-  // --- Sección de turno ---
-  let turnoHTML = '';
-  if (mostrarTurnos) {
-    if (turnoExistente) {
-      turnoHTML = `<div style="background:var(--mr-teal-bg);color:var(--mr-teal-text);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+  // --- Sección de turno (idéntica a la vista del paciente) ---
+  let turnoReservado = turnoExistente || null; // puede cambiar si el profesional reserva
+  function buildTurnoHTML() {
+    if (!mostrarTurnos) return '';
+    if (turnoReservado) {
+      return `<div style="background:var(--mr-teal-bg);color:var(--mr-teal-text);border-radius:10px;padding:1rem;margin-bottom:1rem;">
         <div style="font-weight:700;font-size:14px;margin-bottom:6px;">✓ Turno reservado</div>
-        <div style="font-size:13px;text-transform:capitalize;">${fmtDateLong(turnoExistente.fecha)} a las ${turnoExistente.hora} hs</div>
-        <div style="font-size:12px;margin-top:4px;">${CONFIG_INSTITUCION.servicio} · ${CONFIG_INSTITUCION.institucion}</div>
+        <div style="font-size:13px;text-transform:capitalize;">${fmtDateLong(turnoReservado.fecha)} a las ${turnoReservado.hora} hs</div>
+        <div style="font-size:12px;color:var(--mr-teal-text);margin-top:4px;">${CONFIG_INSTITUCION.servicio}</div>
+        <div style="font-size:12px;color:var(--mr-teal-text);">${CONFIG_INSTITUCION.institucion}</div>
+        <button id="cvp-btn-cambiar-turno" class="btn-secondary" style="margin-top:10px;font-size:12px;padding:6px 12px;">Modificar turno</button>
       </div>`;
-    } else {
-      // Generar selector de turnos
-      const hoy = new Date(); hoy.setHours(0,0,0,0);
-      const finH = new Date(hoy.getTime() + HORIZONTE_TURNOS_DIAS*86400000);
-      const horariosOnline = AGENDA_CONFIG.horarios.slice(0, TURNOS_ONLINE_POR_DIA);
-      const opciones = [];
-      for (let d = new Date(hoy); d <= finH; d.setDate(d.getDate()+1)) {
-        const fechaStr = toInputDate(d);
-        if (AGENDA_CONFIG.diasAtencion.includes(d.getDay()) && !AGENDA_CONFIG.diasBloqueados.includes(fechaStr)) {
-          const libres = horariosOnline.filter(h => !turnosReservados.some(t => t.fecha===fechaStr && t.hora===h));
-          if (libres.length > 0) opciones.push({fechaStr, libres, fechaLabel: fmtDateLong(fechaStr)});
-        }
-      }
-      if (opciones.length === 0) {
-        turnoHTML = `<div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:13px;color:var(--mr-text-muted);">No hay turnos disponibles en los próximos ${HORIZONTE_TURNOS_DIAS} días.</div>`;
-      } else {
-        let selectorHTML = `<div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;">
-          <div style="font-weight:700;font-size:14px;color:var(--mr-primary);margin-bottom:10px;">Reservá tu turno</div>`;
-        opciones.forEach((op, i) => {
-          selectorHTML += `<div style="margin-bottom:${i<opciones.length-1?'10px':'0'};">
-            <div style="font-size:12px;color:var(--mr-text-muted);margin-bottom:4px;text-transform:capitalize;">${op.fechaLabel}</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">`;
-          op.libres.forEach(h => {
-            selectorHTML += `<button class="cvp-btn-horario btn-secondary" data-fecha="${op.fechaStr}" data-hora="${h}" style="font-size:12px;padding:4px 10px;">${h}</button>`;
-          });
-          selectorHTML += `</div></div>`;
-        });
-        selectorHTML += `</div>`;
-        turnoHTML = selectorHTML;
+    }
+    // Selector de turnos
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const finH = new Date(hoy.getTime() + HORIZONTE_TURNOS_DIAS*86400000);
+    const horariosOnline = AGENDA_CONFIG.horarios.slice(0, TURNOS_ONLINE_POR_DIA);
+    const opciones = [];
+    for (let d = new Date(hoy); d <= finH; d.setDate(d.getDate()+1)) {
+      const fechaStr = toInputDate(d);
+      if (AGENDA_CONFIG.diasAtencion.includes(d.getDay()) && !AGENDA_CONFIG.diasBloqueados.includes(fechaStr)) {
+        const libres = horariosOnline.filter(h => !turnosReservados.some(t => t.fecha===fechaStr && t.hora===h));
+        if (libres.length > 0) opciones.push({fechaStr, libres, fechaLabel: fmtDateLong(fechaStr)});
       }
     }
+    if (opciones.length === 0) {
+      return `<div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:13px;color:var(--mr-text-muted);">No hay turnos disponibles en los próximos ${HORIZONTE_TURNOS_DIAS} días.</div>`;
+    }
+    let s = `<div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <div style="font-weight:700;font-size:14px;color:var(--mr-primary);margin-bottom:10px;">Reservá tu turno</div>`;
+    opciones.forEach((op, i) => {
+      s += `<div style="margin-bottom:${i<opciones.length-1?'10px':'0'};">
+        <div style="font-size:12px;color:var(--mr-text-muted);margin-bottom:4px;text-transform:capitalize;">${op.fechaLabel}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">`;
+      op.libres.forEach(h => {
+        s += `<button class="cvp-btn-horario btn-secondary" data-fecha="${op.fechaStr}" data-hora="${h}" style="font-size:12px;padding:4px 10px;">${h}</button>`;
+      });
+      s += `</div></div>`;
+    });
+    s += `</div>`;
+    return s;
   }
+  let turnoHTML = buildTurnoHTML();
 
   // --- Render final ---
   content.innerHTML = `
@@ -2735,7 +2738,7 @@ async function openModalVistaPaciente(pacienteId) {
       <div style="font-weight:700;font-size:15px;margin-bottom:2px;">${titulo}</div>
       <div style="font-size:13px;">${subtitulo}</div>
     </div>
-    ${turnoHTML}
+    <div id="cvp-turno-section">${turnoHTML}</div>
     <div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;">
       <div style="font-size:13px;color:var(--mr-text-muted);margin-bottom:10px;">Mi dispositivo</div>
       <div style="font-size:14px;font-weight:700;">${tipo.nombre}</div>
@@ -2754,14 +2757,29 @@ async function openModalVistaPaciente(pacienteId) {
 
   document.getElementById('cvp-cerrar').addEventListener('click',()=>{content.style.maxWidth='';closeModal();});
 
-  // Listeners de turno (solo si hay botones)
-  content.querySelectorAll('.cvp-btn-horario').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const res = await reservarTurno_({pacienteId:pac.id, fecha:btn.dataset.fecha, hora:btn.dataset.hora, controlId:controlActivo.id, origen:'presencial'});
-      if (!res.ok) { alert(res.error||'Ese horario ya no está disponible.'); return; }
-      openModalVistaPaciente(pacienteId); // Re-abrir con turno confirmado
+  function bindCvpListeners() {
+    // Botón modificar turno
+    const btnCambiar = document.getElementById('cvp-btn-cambiar-turno');
+    if (btnCambiar) {
+      btnCambiar.addEventListener('click', () => {
+        turnoReservado = null;
+        turnoHTML = buildTurnoHTML();
+        document.getElementById('cvp-turno-section').innerHTML = turnoHTML;
+        bindCvpListeners();
+      });
+    }
+    // Botones de horario
+    content.querySelectorAll('.cvp-btn-horario').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const res = await reservarTurno_({pacienteId:pac.id, fecha:btn.dataset.fecha, hora:btn.dataset.hora, controlId:controlActivo.id, origen:'presencial'});
+        if (!res.ok) { alert(res.error||'Ese horario ya no está disponible.'); return; }
+        turnoReservado = turnosReservados.find(t=>t.pacienteId===pac.id) || {fecha:btn.dataset.fecha, hora:btn.dataset.hora};
+        document.getElementById('cvp-turno-section').innerHTML = buildTurnoHTML();
+        bindCvpListeners();
+      });
     });
-  });
+  }
+  bindCvpListeners();
 }
 
 // Definición de grupos visuales de parámetros
@@ -2988,7 +3006,7 @@ function openModalParametrosTecnicos(disp) {
   content.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
       <h3 style="margin:0;">Parámetros técnicos</h3>
-      <span style="font-size:12px; color:var(--mr-text-muted);">${TIPOS[disp.tipo].nombre}${disp.subtipo?' · '+disp.subtipo:''}</span>
+      <span style="font-size:12px; color:var(--mr-text-muted);">${(TIPOS[disp.tipo]||{nombre:disp.tipo||'?'}).nombre}${disp.subtipo?' · '+disp.subtipo:''}</span>
     </div>
     <div style="max-height:70vh; overflow-y:auto; padding-right:4px;">
       ${renderSeccion('Parámetros generales', 'var(--mr-primary)', 'general')}
@@ -3104,7 +3122,7 @@ function openModalEditarPaciente(pacienteId) {
     }
     const cambiosEP = {nombre:`${apellido}, ${nombre}`, dni, sexo:document.getElementById('ep-sexo').value, fechaNacimiento:document.getElementById('ep-fechanac').value, tel:document.getElementById('ep-tel').value.trim(), estado:document.getElementById('ep-estado').value, consentimiento:document.getElementById('ep-consentimiento').checked};
     Object.assign(p, cambiosEP);
-    actualizarPaciente_(p.id, cambiosEP).catch(e=>console.error(e));
+    actualizarPaciente_(p.id, cambiosEP).catch(e=>console.error('actualizarPaciente:',e));
     closeModal();
     const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
   });
@@ -3137,7 +3155,7 @@ function generarTextoResumen(controlId) {
 
   const edad = pac?.fechaNacimiento ? calcularEdad(pac.fechaNacimiento) : null;
   const sexoTexto = pac?.sexo === 'F' ? 'femenina' : pac?.sexo === 'M' ? 'masculino' : null;
-  const tipo = disp ? TIPOS[disp.tipo]?.nombre : '';
+  const tipo = disp ? (TIPOS[disp.tipo]?.nombre || disp.tipo || '') : '';
   const subtipo = disp?.subtipo || '';
   const vidaBat = fmtVidaBateria(control);
 
@@ -3504,7 +3522,7 @@ function renderCfgInstitucion() {
     CONFIG_INSTITUCION.servicio = document.getElementById('cfg-inst-servicio').value.trim() || CONFIG_INSTITUCION.servicio;
     CONFIG_INSTITUCION.institucion = document.getElementById('cfg-inst-institucion').value.trim() || CONFIG_INSTITUCION.institucion;
     actualizarTextoInstitucional();
-    guardarConfig_('CONFIG_INSTITUCION', CONFIG_INSTITUCION);
+    guardarConfig_('CONFIG_INSTITUCION', CONFIG_INSTITUCION).catch(e=>console.error('cfg CONFIG_INSTITUCION:',e));
     const ok = document.getElementById('cfg-inst-ok');
     ok.style.display = 'inline';
     setTimeout(() => ok.style.display = 'none', 2000);
@@ -3532,7 +3550,7 @@ function renderCfgInvestigacion() {
     FECHA_IMPLEMENTACION_STR = val;
     const [y,m,d] = val.split('-');
     FECHA_IMPLEMENTACION = new Date(+y, +m-1, +d);
-    guardarConfig_('FECHA_IMPLEMENTACION_STR', val);
+    guardarConfig_('FECHA_IMPLEMENTACION_STR', val).catch(e=>console.error('cfg FECHA_IMPLEMENTACION_STR:',e));
     const ok = document.getElementById('cfg-fecha-corte-ok');
     ok.style.display = 'inline-flex';
     setTimeout(() => ok.style.display = 'none', 2000);
@@ -4036,7 +4054,7 @@ function getDatosInvestigacion() {
   const realizados = controles.map(c => {
     const pac = pacientes.find(p=>p.id===c.pacienteId);
     const disp = dispositivos.find(d=>d.id===c.dispositivoId);
-    const tipo = disp ? TIPOS[disp.tipo] : null;
+    const tipo = disp ? (TIPOS[disp.tipo] || {nombre:disp.tipo||'?',lapso:12}) : null;
     const riesgo = calcularRiesgo(c);
     const retrasoDias = calcularRetrasoDias(c);
     const retrasoAjustado = calcularRetrasoAjustado(c);
@@ -4076,7 +4094,7 @@ function getDatosInvestigacion() {
       codigo: p.paciente.codigo,
       sexo: p.paciente.sexo || '-',
       edad: calcularEdad(p.paciente.fechaNacimiento) ?? '-',
-      tipoDispositivo: TIPOS[p.dispositivo.tipo].nombre,
+      tipoDispositivo: TIPOS[p.dispositivo.tipo] || {nombre:p.dispositivo.tipo||'?', lapso:12}.nombre,
       fase: p.fase,
       fechaProgramada: p.fechaProgramada,
       fechaRealizada: null,
@@ -4305,7 +4323,7 @@ function renderPacienteView() {
   `;
 
   view.innerHTML = html;
-  renderTurnoPaciente(controlActivo, pacienteActivo, estado);
+  renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
 }
 
 
@@ -4357,7 +4375,7 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
     `;
     document.getElementById('btn-cambiar-turno').addEventListener('click', () => {
       turnoSeleccionadoPaciente = null;
-      renderTurnoPaciente(controlActivo, pacienteActivo, estado);
+      renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
     });
     return;
   }
@@ -4404,7 +4422,7 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
       const _rTP = await reservarTurno_(_dtP);
       if (!_rTP.ok) { alert(_rTP.error||'Ese horario ya no está disponible.'); renderTurnoPaciente(controlActivo, pacienteActivo, estado); return; }
       turnoSeleccionadoPaciente = {fecha: btn.dataset.fecha, hora: btn.dataset.hora};
-      renderTurnoPaciente(controlActivo, pacienteActivo, estado);
+      renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
     });
   });
 }
