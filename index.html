@@ -778,18 +778,27 @@ function fmtDate(d) {
   }
   return new Date(d).toLocaleDateString('es-AR');
 }
+function _parseFmt(d) {
+  // Parsear siempre como fecha local para evitar bug UTC
+  if (!d) return new Date();
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y,m,dd] = d.split('-'); return new Date(+y, +m-1, +dd);
+  }
+  if (d instanceof Date) return d;
+  return new Date(d);
+}
 function fmtMesAnio(d) {
-  const s = new Date(d).toLocaleDateString('es-AR', {month:'long', year:'numeric'});
+  const s = _parseFmt(d).toLocaleDateString('es-AR', {month:'long', year:'numeric'});
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function fmtDateLong(d) {
-  const s = new Date(d).toLocaleDateString('es-AR', {weekday:'long', day:'2-digit', month:'2-digit'});
+  const s = _parseFmt(d).toLocaleDateString('es-AR', {weekday:'long', day:'2-digit', month:'2-digit'});
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function fmtDateTime(d) {
-  return new Date(d).toLocaleString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+  return _parseFmt(d).toLocaleString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
 }
-function fmtDateShort(d) { return new Date(d).toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'}); }
+function fmtDateShort(d) { return _parseFmt(d).toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'}); }
 function diasRestantes(fecha) {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   let f;
