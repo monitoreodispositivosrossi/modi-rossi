@@ -2021,11 +2021,11 @@ async function renderForm() {
   });
 
     // Cancelar listener anterior para evitar acumulación
-  if (_submitAbort) _submitAbort.abort();
-  _submitAbort = new AbortController();
-  const _signal = _submitAbort.signal;
-  document.getElementById('f-submit').addEventListener('click', async () => {
-    if (_signal.aborted) return;
+  // Clonar el botón elimina TODOS los listeners anteriores
+  const _oldBtn = document.getElementById('f-submit');
+  const _newBtn = _oldBtn.cloneNode(true);
+  _oldBtn.parentNode.replaceChild(_newBtn, _oldBtn);
+  _newBtn.addEventListener('click', async () => {
     if (_submitRunning) return;
     _submitRunning = true;
     // Leer modo edición del DOM para evitar problemas de closure
@@ -2169,6 +2169,7 @@ async function renderForm() {
     document.getElementById('modal-ctrl-pac').addEventListener('click', () => {
       content.style.maxWidth = '';
       closeModal();
+      _submitRunning = false;
       showView('pac');
     });
     document.getElementById('f-fechacontrol').value = toInputDate(new Date());
