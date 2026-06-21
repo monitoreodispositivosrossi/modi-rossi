@@ -2728,6 +2728,7 @@ async function openModalVistaPaciente(pacienteId) {
     </div>
   `;
 
+  console.log('[MODAL] estado:', estado, '| controlActivo.proxControl:', controlActivo.proxControl, '| dias:', diasRestantes(controlActivo.proxControl));
   await renderTurnoPaciente(controlActivo, pac, estado);
   pacienteLogueado = pacienteLogueadoAnterior;
   turnoSeleccionadoPaciente = turnoAnterior;
@@ -4298,6 +4299,7 @@ function cerrarSesionPaciente() {
 
 async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
   const view = document.getElementById('turno-section');
+  console.log('[TURNO] estado:', estado, '| view:', !!view, '| diasAtencion:', AGENDA_CONFIG.diasAtencion, '| horarios:', AGENDA_CONFIG.horarios, '| HORIZONTE:', HORIZONTE_TURNOS_DIAS);
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const finHorizonte = new Date(hoy.getTime() + HORIZONTE_TURNOS_DIAS*86400000);
 
