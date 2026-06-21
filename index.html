@@ -400,8 +400,14 @@ function mapPac(p) {
   };
 }
 function mapDisp(d) {
+  // Normalizar tipo: puede venir como clave 'T1' o como nombre 'Marcapasos'
+  let tipoNorm = String(d.tipo||'');
+  if (tipoNorm && !TIPOS[tipoNorm]) {
+    const found = Object.keys(TIPOS).find(k => TIPOS[k].nombre === tipoNorm);
+    if (found) tipoNorm = found;
+  }
   return {
-    id: String(d.id||''), pacienteId: String(d.paciente_id||''), tipo: String(d.tipo||''),
+    id: String(d.id||''), pacienteId: String(d.paciente_id||''), tipo: tipoNorm,
     marca: String(d.marca||''), modelo: String(d.modelo||''), serie: String(d.serie||''),
     subtipo: String(d.subtipo||''), fechaImplante: parseFechaSB(d.fecha_implante),
     motivoImplante: String(d.motivo_implante||''),
@@ -2642,7 +2648,7 @@ async function openModalVistaPaciente(pacienteId) {
     pacienteLogueado = pacienteLogueadoAnterior;
     return;
   }
-  const tipo = TIPOS[dispActivo.tipo];
+  const tipo = TIPOS[dispActivo.tipo] || {nombre: dispActivo.tipo || 'Dispositivo', lapso: 12};
   const dias = diasRestantes(controlActivo.proxControl);
   const vencido = dias < 0;
   const proximo30 = dias >= 0 && dias <= VENTANA_DIAS;
@@ -2728,7 +2734,6 @@ async function openModalVistaPaciente(pacienteId) {
     </div>
   `;
 
-  console.log('[MODAL] estado:', estado, '| controlActivo.proxControl:', controlActivo.proxControl, '| dias:', diasRestantes(controlActivo.proxControl));
   await renderTurnoPaciente(controlActivo, pac, estado);
   pacienteLogueado = pacienteLogueadoAnterior;
   turnoSeleccionadoPaciente = turnoAnterior;
@@ -4299,7 +4304,6 @@ function cerrarSesionPaciente() {
 
 async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
   const view = document.getElementById('turno-section');
-  console.log('[TURNO] estado:', estado, '| view:', !!view, '| diasAtencion:', AGENDA_CONFIG.diasAtencion, '| horarios:', AGENDA_CONFIG.horarios, '| HORIZONTE:', HORIZONTE_TURNOS_DIAS);
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const finHorizonte = new Date(hoy.getTime() + HORIZONTE_TURNOS_DIAS*86400000);
 
