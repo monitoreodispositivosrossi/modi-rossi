@@ -826,8 +826,13 @@ function toInputDate(d) {
   return String(d).slice(0,10);
 }
 function addMonths(date, months) {
-  const d = new Date(date);
+  const d = _parseFmt(date); // evitar bug UTC
+  const dia = d.getDate();
+  d.setDate(1); // ir al día 1 para evitar overflow
   d.setMonth(d.getMonth() + months);
+  // Restaurar el día sin overflow (ej: 31 ene + 1 mes → último día de feb)
+  const maxDia = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  d.setDate(Math.min(dia, maxDia));
   return d;
 }
 
@@ -898,9 +903,10 @@ function calcularRetrasoMeses(c) {
 }
 
 function vidaBateriaMeses(c) {
-  const anios = parseInt(c.bateriaAnios)||0;
-  const meses = parseInt(c.bateriaMeses)||0;
-  return anios*12 + meses;
+  const anios = c.bateriaAnios !== '' && c.bateriaAnios !== null && c.bateriaAnios !== undefined ? parseInt(c.bateriaAnios) : null;
+  const meses = c.bateriaMeses !== '' && c.bateriaMeses !== null && c.bateriaMeses !== undefined ? parseInt(c.bateriaMeses) : null;
+  if (anios === null && meses === null) return null;
+  return (anios||0)*12 + (meses||0);
 }
 
 function eriMenorUnAnio(c) {
@@ -4078,7 +4084,7 @@ function getDatosInvestigacion() {
       motivos: riesgo.motivos.join(' | '),
       seguimientoPerdido: esSeguimientoPerdido(c) ? 'Sí' : 'No',
       accion: accion ? `${accion.tipo} - ${accion.resultado}` : '-',
-      aptoAnalisis: (incompleto.length===0 && pac.estado==='Activo') ? 'Sí' : 'No',
+      aptoAnalisis: (incompleto.length===0 && pac.estado==='Activo' && pac.consentimiento===true) ? 'Sí' : 'No',
       motivoExclusion: incompleto.length ? `Faltan: ${incompleto.join(', ')}` : (pac.estado!=='Activo' ? `Paciente ${pac.estado}` : ''),
       fechaCarga: c.fechaCarga || c.fechaControl
     };
@@ -4107,7 +4113,7 @@ function getDatosInvestigacion() {
       motivos: riesgo.motivos.join(' | '),
       seguimientoPerdido: p.seguimientoPerdido ? 'Sí' : 'No',
       accion: accion ? `${accion.tipo} - ${accion.resultado}` : '-',
-      aptoAnalisis: (incompleto.length===0 && p.paciente.estado==='Activo') ? 'Sí' : 'No',
+      aptoAnalisis: (incompleto.length===0 && p.paciente.estado==='Activo' && p.paciente.consentimiento===true) ? 'Sí' : 'No',
       motivoExclusion: incompleto.length ? `Faltan: ${incompleto.join(', ')}` : (p.paciente.estado!=='Activo' ? `Paciente ${p.paciente.estado}` : ''),
       fechaCarga: ultimo.fechaCarga || ultimo.fechaControl
     };
