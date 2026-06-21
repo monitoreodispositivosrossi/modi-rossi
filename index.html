@@ -3634,10 +3634,11 @@ function renderMotivos() {
 
   container.querySelectorAll('.cfg-motivo-eliminar').forEach(btn => {
     btn.addEventListener('click', () => {
-      openModalConfirmar(`¿Eliminás el motivo "${btn.dataset.nombre}"?`, () => {
+      if (confirm(`¿Eliminás el motivo "${btn.dataset.nombre}"?`)) {
         MOTIVOS_IMPLANTE.splice(parseInt(btn.dataset.idx), 1);
+        guardarConfig_('MOTIVOS_IMPLANTE', MOTIVOS_IMPLANTE).catch(e=>console.error(e));
         renderMotivos();
-      });
+      }
     });
   });
 }
@@ -3725,10 +3726,11 @@ function renderMarcas() {
 
   container.querySelectorAll('.cfg-marca-eliminar').forEach(btn => {
     btn.addEventListener('click', () => {
-      openModalConfirmar(`¿Eliminás la marca "${btn.dataset.nombre}"?`, () => {
+      if (confirm(`¿Eliminás la marca "${btn.dataset.nombre}"?`)) {
         MARCAS_DISPOSITIVOS.splice(parseInt(btn.dataset.idx), 1);
+        guardarConfig_('MARCAS_DISPOSITIVOS', MARCAS_DISPOSITIVOS).catch(e=>console.error(e));
         renderMarcas();
-      });
+      }
     });
   });
 }
