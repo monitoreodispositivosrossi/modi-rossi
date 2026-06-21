@@ -2093,15 +2093,15 @@ async function renderForm() {
       let fechaProgramada = fechaControl;
       if (controlesPrevios.length > 0) {
         const ultimo = controlesPrevios.reduce((a,b) => diasRestantes(a.fechaControl) > diasRestantes(b.fechaControl) ? a : b);
-        fechaProgramada = _parseFmt(ultimo.proxControl);
+        fechaProgramada = toInputDate(_parseFmt(ultimo.proxControl));
       }
       let nuevoControl = {
         id:'C'+(nextControlId),
         pacienteId, dispositivoId,
         profesionalId: profesionalLogueado ? profesionalLogueado.id : '',
-        fechaProgramada: fechaProgramada,
-        fechaControl: fechaControl,
-        proxControl: proxControl,
+        fechaProgramada: toInputDate(fechaProgramada),
+        fechaControl: toInputDate(fechaControl),
+        proxControl: toInputDate(proxControl),
         proxMeses: meses,
         bateriaAnios: document.getElementById('f-bateria-anios').value,
         bateriaMeses: document.getElementById('f-bateria-meses').value,
@@ -2172,18 +2172,7 @@ async function renderForm() {
       _submitRunning = false;
       showView('pac');
     });
-    document.getElementById('f-fechacontrol').value = toInputDate(new Date());
-    document.getElementById('f-proxmeses').value = '6';
-    document.getElementById('f-bateria-anios').value = '';
-    document.getElementById('f-bateria-meses').value = '';
-    const vp = document.getElementById('f-vida-preview'); if (vp) vp.innerHTML = '';
-    parametrosTecnicosTemp = {};
-    document.getElementById('f-params-resumen').style.display = 'none';
-    document.getElementById('f-riesgo-manual').checked = false;
-    document.getElementById('f-indicaciones').value = '';
-    const fca = document.getElementById('f-control-anterior');
-    if (fca) fca.style.display = 'none';
-    updatePreview();
+    // El formulario se resetea automáticamente en showView cuando se navega a otra vista
   });
 }
 
@@ -4230,7 +4219,22 @@ const renders = {dash:renderDash, form:renderForm, agenda:renderAgenda, pac:rend
 
 function showView(key) {
   // Si se navega a cualquier vista que no sea el formulario, resetear modo edición
-  if (key !== 'form') controlEditandoId = null;
+  if (key !== 'form') {
+    controlEditandoId = null;
+    // Resetear formulario para el próximo uso
+    const ffc = document.getElementById('f-fechacontrol');
+    if (ffc) {
+      ffc.value = toInputDate(new Date());
+      const fpm = document.getElementById('f-proxmeses'); if (fpm) fpm.value = '6';
+      const fba = document.getElementById('f-bateria-anios'); if (fba) fba.value = '';
+      const fbm = document.getElementById('f-bateria-meses'); if (fbm) fbm.value = '';
+      const vp  = document.getElementById('f-vida-preview');  if (vp)  vp.innerHTML = '';
+      const fps = document.getElementById('f-params-resumen'); if (fps) fps.style.display = 'none';
+      const frm = document.getElementById('f-riesgo-manual'); if (frm) frm.checked = false;
+      const fi  = document.getElementById('f-indicaciones');  if (fi)  fi.value = '';
+      parametrosTecnicosTemp = {};
+    }
+  }
   Object.keys(views).forEach(k => {
     document.getElementById(views[k]).style.display = (k===key) ? 'block' : 'none';
   });
