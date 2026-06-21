@@ -580,6 +580,7 @@ async function actualizarControl_(controlId, cambios) {
   const upd = {};
   if (cambios.fechaControl    !== undefined) upd.fecha_control     = toD(cambios.fechaControl);
   if (cambios.proxControl     !== undefined) upd.prox_control      = toD(cambios.proxControl);
+  if (cambios.fechaProgramada !== undefined) upd.fecha_programada  = toD(cambios.fechaProgramada);
   if (cambios.proxMeses       !== undefined) upd.prox_meses        = cambios.proxMeses;
   if (cambios.bateriaAnios    !== undefined) upd.bateria_anios     = cambios.bateriaAnios;
   if (cambios.bateriaMeses    !== undefined) upd.bateria_meses     = cambios.bateriaMeses;
@@ -2057,9 +2058,25 @@ async function renderForm() {
       editando.indicaciones = document.getElementById('f-indicaciones').value;
       editando.riesgoManual = document.getElementById('f-riesgo-manual').checked;
       editando.parametrosTecnicos = {...parametrosTecnicosTemp};
+
+      // Recalcular fechaProgramada: proxControl del control anterior, o fechaControl si es el primero
+      const otrosControles = controles.filter(c => c.id !== editando.id && c.pacienteId === editando.pacienteId && c.dispositivoId === editando.dispositivoId);
+      let nuevaFechaProgramada;
+      if (otrosControles.length === 0) {
+        // Es el único control — programada = realizada (retraso 0)
+        nuevaFechaProgramada = editando.fechaControl;
+      } else {
+        // Tomar el proxControl del control anterior más reciente
+        const anterior = otrosControles
+          .filter(c => diasRestantes(c.fechaControl) < diasRestantes(editando.fechaControl))
+          .reduce((a,b) => diasRestantes(a.fechaControl) > diasRestantes(b.fechaControl) ? a : b, null);
+        nuevaFechaProgramada = anterior ? toInputDate(anterior.proxControl) : editando.fechaControl;
+      }
+      editando.fechaProgramada = nuevaFechaProgramada;
+
       controlGuardado = editando;
       controlEditandoId = null;
-      await actualizarControl_(editando.id,{fechaControl:editando.fechaControl,proxControl:editando.proxControl,proxMeses:meses,bateriaAnios:editando.bateriaAnios,bateriaMeses:editando.bateriaMeses,indicaciones:editando.indicaciones,riesgoManual:editando.riesgoManual,parametrosTecnicos:editando.parametrosTecnicos});
+      await actualizarControl_(editando.id,{fechaControl:editando.fechaControl,proxControl:editando.proxControl,proxMeses:meses,bateriaAnios:editando.bateriaAnios,bateriaMeses:editando.bateriaMeses,indicaciones:editando.indicaciones,riesgoManual:editando.riesgoManual,parametrosTecnicos:editando.parametrosTecnicos,fechaProgramada:nuevaFechaProgramada});
     } else {
       // Nuevo control
       const controlesPrevios = controles.filter(c => c.pacienteId===pacienteId && c.dispositivoId===dispositivoId);
