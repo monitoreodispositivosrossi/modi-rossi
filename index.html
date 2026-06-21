@@ -458,7 +458,7 @@ CONFIG_INSTITUCION = {
 
 
 function actualizarTextoInstitucional() {
-  ids = {
+  const ids = {
     'hdr-servicio': `Monitoreo de Dispositivos · ${CONFIG_INSTITUCION.servicio}`,
     'hdr-institucion': CONFIG_INSTITUCION.institucion,
     'login-servicio': `Monitoreo de Dispositivos · ${CONFIG_INSTITUCION.servicio}`,
@@ -755,14 +755,14 @@ function renderDash() {
 
   const recordatorios = [];  // proxControl ≤7 días, sin turno
   const enVentana = [];      // proxControl vencido hace ≤30 días, sin control ni turno
-  conTurno = [];       // tienen turno asignado
+  const conTurno = [];       // tienen turno asignado
   const vencidos = [];       // vencido hace >30 días, sin control
   const proximos = [];       // proxControl >7 días, sin turno
 
   // Por cada paciente activo, tomar solo el control más reciente
   const pacientesActivos = pacientes.filter(p => p.estado === 'Activo');
   pacientesActivos.forEach(pac => {
-    controlesPac = controles.filter(c => c.pacienteId === pac.id);
+    const controlesPac = controles.filter(c => c.pacienteId === pac.id);
     if (controlesPac.length === 0) return;
     // Tomar el control con fechaControl más reciente
     c = controlesPac.reduce((mas, c2) => {
@@ -965,7 +965,7 @@ async function openModalAccion(controlId, tipo) {
   content = document.getElementById('modal-content');
   overlay.classList.add('show');
 
-  control = controles.find(c=>c.id===controlId);
+  const control = controles.find(c=>c.id===controlId);
   const pac = control ? pacientes.find(p=>p.id===control.pacienteId) : null;
 
   // Generar opciones de turno (próximos 21 días)
@@ -1018,13 +1018,13 @@ async function openModalAccion(controlId, tipo) {
 
   document.getElementById('acc-cancelar').addEventListener('click', closeModal);
   document.getElementById('acc-guardar').addEventListener('click', async () => {
-    resultado = document.getElementById('acc-resultado').value;
+    const resultado = document.getElementById('acc-resultado').value;
     const turnoVal = document.getElementById('acc-turno').value;
     if (turnoVal) {
       const [fechaStr, hora] = turnoVal.split('|');
       // Reemplazar turno anterior si existe
-      idx = turnosReservados.findIndex(t => t.controlId === controlId);
-      nuevoTurno = {
+      const idx = turnosReservados.findIndex(t => t.controlId === controlId);
+      const nuevoTurno = {
         pacienteId: control.pacienteId,
         fecha: parseLocalDate(fechaStr),
         hora,
@@ -1069,7 +1069,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
   `;
   DIAS_SEMANA.forEach((nombre, idx) => {
-    activo = AGENDA_CONFIG.diasAtencion.includes(idx);
+    const activo = AGENDA_CONFIG.diasAtencion.includes(idx);
     html += `<button class="day-btn ${activo?'active':''}" data-dia="${idx}">${nombre}</button>`;
   });
   html += `
@@ -1195,7 +1195,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
 }
 
 function renderHorarios() {
-  cont = document.getElementById('lista-horarios');
+  const cont = document.getElementById('lista-horarios');
   let html = '';
   AGENDA_CONFIG.horarios.forEach(h => {
     html += `<span class="pill">${h}<button class="btn-del-horario" data-h="${h}" aria-label="Quitar ${h}"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></span>`;
@@ -1211,7 +1211,7 @@ function renderHorarios() {
 }
 
 function renderDiasBloqueados() {
-  cont = document.getElementById('lista-dias-bloqueados');
+  const cont = document.getElementById('lista-dias-bloqueados');
   if (!cont) return;
   const hoy = toInputDate(new Date());
   AGENDA_CONFIG.diasBloqueados = AGENDA_CONFIG.diasBloqueados.filter(d => d >= hoy);
@@ -1258,7 +1258,7 @@ async function renderTablaTurnos() {
     const disp = dispositivos.find(d=>d.pacienteId===t.pacienteId && d.activo);
     const tipoNombre = disp ? TIPOS[disp.tipo]?.nombre : '-';
     const marcaNombre = disp ? disp.marca : '-';
-    idxReal = turnosReservados.indexOf(t);
+    const idxReal = turnosReservados.indexOf(t);
     html += `
       <tr>
         <td style="text-transform:capitalize;">${fmtDateLong(t.fecha)}</td>
@@ -1352,7 +1352,7 @@ function openModalAsignarTurno(fechaStr, hora) {
     const msg = document.getElementById('at-msg');
     if (!pacienteId) { msg.style.display='block'; msg.textContent='Seleccioná un paciente.'; return; }
     // Verificar que no haya otro turno en ese horario
-    controlActivo = controles.filter(c=>c.pacienteId===pacienteId).sort((a,b)=>new Date(b.fechaControl)-new Date(a.fechaControl))[0];
+    const controlActivo = controles.filter(c=>c.pacienteId===pacienteId).sort((a,b)=>new Date(b.fechaControl)-new Date(a.fechaControl))[0];
     const datosTurnoAt = {pacienteId, fecha: fechaStr, hora, controlId: (controlActivo||{}).id||'', profesionalId: profesionalLogueado ? profesionalLogueado.id : '', origen: 'presencial'};
     const resAt = await reservarTurno_(datosTurnoAt);
     if (!resAt.ok) { msg.style.display='block'; msg.textContent=resAt.error||'Ese horario ya está ocupado.'; return; }
@@ -1421,7 +1421,7 @@ function irANuevoControl(pacienteId) {
 }
 
 function renderDiagramaOcupacion() {
-  cont = document.getElementById('diagrama-ocupacion');
+  const cont = document.getElementById('diagrama-ocupacion');
   const fechasAtencion = getFechasAtencionConBloqueados(4);
 
   if (fechasAtencion.length === 0 || AGENDA_CONFIG.horarios.length === 0) {
@@ -1451,7 +1451,7 @@ function renderDiagramaOcupacion() {
           const nombre = pac ? pac.nombre.split(',')[0] : '?';
           const marca = disp ? disp.marca : '';
           const esOnline = turno.origen === 'online';
-          cls = esOnline ? 'occ-cell occ-online' : 'occ-cell occ-taken';
+          const cls = esOnline ? 'occ-cell occ-online' : 'occ-cell occ-taken';
           html += `<div class="${cls}" title="${pac ? pac.nombre : ''}${esOnline ? ' · Reservado online' : ' · Presencial'}" style="cursor:pointer; white-space:normal; line-height:1.3;" onclick="openModalPacienteAgenda('${turno.pacienteId}')">
             <div style="font-weight:700; font-size:11px;">${nombre}</div>
             ${marca ? `<div style="font-size:10px; opacity:0.8;">${marca}</div>` : ''}
@@ -1678,7 +1678,7 @@ async function renderForm() {
       btnParams.style.display = perfil ? 'inline-flex' : 'none';
 
       // Botón control anterior
-      controlAnteriorDiv = document.getElementById('f-control-anterior');
+      const controlAnteriorDiv = document.getElementById('f-control-anterior');
       const ultimoControl = controles
         .filter(c => c.pacienteId === pacienteId)
         .sort((a,b) => new Date(b.fechaControl) - new Date(a.fechaControl))[0];
@@ -1760,7 +1760,7 @@ async function renderForm() {
 
     const dispositivoId = document.getElementById('f-dispositivo').value;
 
-    controlGuardado;
+    let controlGuardado;
 
     if (modoEdicion) {
       // Editar control existente
@@ -1786,13 +1786,13 @@ async function renderForm() {
       }).catch(e => console.error('Error actualizando control:', e));
     } else {
       // Nuevo control
-      controlesPrevios = controles.filter(c => c.pacienteId===pacienteId && c.dispositivoId===dispositivoId);
+      const controlesPrevios = controles.filter(c => c.pacienteId===pacienteId && c.dispositivoId===dispositivoId);
       let fechaProgramada = fechaControl;
       if (controlesPrevios.length > 0) {
         const ultimo = controlesPrevios.reduce((a,b) => new Date(a.fechaControl) > new Date(b.fechaControl) ? a : b);
         fechaProgramada = typeof ultimo.proxControl === 'string' ? parseLocalDate(ultimo.proxControl) : new Date(ultimo.proxControl);
       }
-      nuevoControl = {
+      let nuevoControl = {
         id:'C'+(nextControlId++),
         pacienteId, dispositivoId,
         profesionalId: profesionalLogueado ? profesionalLogueado.id : '',
@@ -1818,11 +1818,11 @@ async function renderForm() {
     // Actualizar subtipo y fecha implante del dispositivo
     const dispActualizar = dispositivos.find(d => d.id === dispositivoId);
     if (dispActualizar && !modoEdicion) {
-      nuevoSubtipo = document.getElementById('f-subtipo')?.value;
+      const nuevoSubtipo = document.getElementById('f-subtipo')?.value;
       if (nuevoSubtipo !== undefined) dispActualizar.subtipo = nuevoSubtipo;
       const nuevaFecha = document.getElementById('f-fecha-implante')?.value;
       if (nuevaFecha !== undefined) dispActualizar.fechaImplante = nuevaFecha;
-      nuevoMotivo = getMotivoValue('f-motivo-implante');
+      const nuevoMotivo = getMotivoValue('f-motivo-implante');
       if (nuevoMotivo !== undefined) dispActualizar.motivoImplante = nuevoMotivo;
       const cambiosDisp = {};
       if (nuevoSubtipo !== undefined) cambiosDisp.subtipo = nuevoSubtipo;
@@ -2397,14 +2397,14 @@ function openModalVistaPaciente(pacienteId) {
   pacienteLogueado = pac;
   const tmpView = document.getElementById('modal-vista-pac-content');
 
-  controlesPac = controles.filter(c=>c.pacienteId===pac.id);
+  const controlesPac = controles.filter(c=>c.pacienteId===pac.id);
   if (controlesPac.length === 0) {
     tmpView.innerHTML = `<div style="font-size:13px; color:var(--mr-text-muted); text-align:center; padding:1.5rem;">Este paciente no tiene controles registrados aún.</div>`;
     pacienteLogueado = pacienteLogueadoAnterior;
     return;
   }
 
-  controlActivo = controlesPac.reduce((a,b)=>new Date(a.fechaControl)>new Date(b.fechaControl)?a:b);
+  const controlActivo = controlesPac.reduce((a,b)=>new Date(a.fechaControl)>new Date(b.fechaControl)?a:b);
   const dispActivo = dispositivos.find(d=>d.id===controlActivo.dispositivoId);
   if (!dispActivo) {
     tmpView.innerHTML = `<div style="font-size:13px; color:var(--mr-text-muted); text-align:center; padding:1.5rem;">Sin dispositivo activo asociado.</div>`;
@@ -2638,7 +2638,7 @@ function openModalParametrosTecnicos(disp) {
         return false;
       });
 
-      checkId = `chk-${g.checkParam.replace(/ /g,'-')}`;
+      const checkId = `chk-${g.checkParam.replace(/ /g,'-')}`;
       const isChecked = parametrosTecnicosTemp[g.checkParam] === 'true';
       return `
         <div style="margin-bottom:10px;">
@@ -2773,8 +2773,8 @@ function openModalParametrosTecnicos(disp) {
       parametrosTecnicosTemp['Batería (tiempo)'] = `${batAnios.value||'0'}a ${batMeses?.value||'0'}m`;
     }
     parametrosTecnicosTemp['__otros__'] = document.getElementById('params-otros')?.value.trim() || '';
-    completados = Object.entries(parametrosTecnicosTemp).filter(([k,v])=>v && k!=='__otros__').length;
-    resumen = document.getElementById('f-params-resumen');
+    const completados = Object.entries(parametrosTecnicosTemp).filter(([k,v])=>v && k!=='__otros__').length;
+    const resumen = document.getElementById('f-params-resumen');
     if (completados > 0 || parametrosTecnicosTemp['__otros__']) {
       resumen.style.display = 'block';
       resumen.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> ${completados} parámetro(s) técnico(s) cargado(s)`;
@@ -2875,7 +2875,7 @@ const UNIDADES_PARAM = {
 };
 
 function generarTextoResumen(controlId) {
-  control = controles.find(c => c.id === controlId);
+  const control = controles.find(c => c.id === controlId);
   if (!control) return '';
   const pac = pacientes.find(p => p.id === control.pacienteId);
   const disp = dispositivos.find(d => d.id === control.dispositivoId);
@@ -2901,7 +2901,7 @@ function generarTextoResumen(controlId) {
   // Autocaptura / automática
   const autocaptura = params['Salida autocaptura'] === 'true';
   const automatica = params['Sensibilidad automática'] === 'true';
-  checkTexto = [
+  const checkTexto = [
     autocaptura ? 'Salida: Autocaptura' : null,
     automatica ? 'Sensibilidad: Automática' : null
   ].filter(Boolean).join('\n');
@@ -2970,7 +2970,7 @@ function openModalResumenControl(controlId, onClose = null) {
 }
 
 function openModalVerParametrosPorId(controlId) {
-  control = controles.find(c => c.id === controlId);
+  const control = controles.find(c => c.id === controlId);
   if (!control?.parametrosTecnicos) return;
   openModalVerParametros(control.parametrosTecnicos);
 }
@@ -3259,7 +3259,7 @@ function renderConfig() {
 }
 
 function renderCfgInstitucion() {
-  container = document.getElementById('cfg-institucion');
+  const container = document.getElementById('cfg-institucion');
   container.innerHTML = `
     <div class="field">
       <label>Nombre del servicio</label>
@@ -3286,7 +3286,7 @@ function renderCfgInstitucion() {
 }
 
 function renderCfgInvestigacion() {
-  container = document.getElementById('cfg-investigacion');
+  const container = document.getElementById('cfg-investigacion');
   container.innerHTML = `
     <div class="field" style="max-width:280px;">
       <label>Fecha de corte (inicio fase prospectiva)</label>
@@ -3314,7 +3314,7 @@ function renderCfgInvestigacion() {
 }
 
 function renderMotivos() {
-  container = document.getElementById('cfg-motivos');
+  const container = document.getElementById('cfg-motivos');
   let html = `
     <div style="display:flex; justify-content:flex-end; margin-bottom:0.75rem;">
       <button id="cfg-motivos-nuevo" class="btn-primary" style="font-size:13px; display:flex; align-items:center; gap:6px;">
@@ -3402,7 +3402,7 @@ function openModalMotivo(idx, valorActual) {
 }
 
 function renderMarcas() {
-  container = document.getElementById('cfg-marcas');
+  const container = document.getElementById('cfg-marcas');
   let html = `
     <div style="display:flex; justify-content:flex-end; margin-bottom:0.75rem;">
       <button id="cfg-marcas-nueva" class="btn-primary" style="font-size:13px; display:flex; align-items:center; gap:6px;">
@@ -3495,7 +3495,7 @@ function openModalMarca(idx, valorActual) {
 }
 
 function renderAdminDatos() {
-  container = document.getElementById('cfg-admin');
+  const container = document.getElementById('cfg-admin');
 
   // Pacientes sin controles
   const pacientesSinControles = pacientes.filter(p =>
@@ -3535,7 +3535,7 @@ function renderAdminDatos() {
   // Buscador de pacientes sin controles — event delegation para manejar clicks en botones dinámicos
   document.getElementById('cfg-admin-pac-buscar').addEventListener('input', function() {
     const filtro = this.value.trim();
-    res = document.getElementById('cfg-admin-pac-resultados');
+    const res = document.getElementById('cfg-admin-pac-resultados');
     if (!filtro) { res.innerHTML = ''; return; }
     const normalizar = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/,/g,' ').replace(/\s+/g,' ').trim();
     const filt = normalizar(filtro);
@@ -3565,9 +3565,9 @@ function renderAdminDatos() {
 }
 
 function renderControlesParaEliminar(pacienteId) {
-  container = document.getElementById('cfg-admin-controles');
+  const container = document.getElementById('cfg-admin-controles');
   if (!pacienteId) { container.innerHTML = ''; return; }
-  controlesPac = controles
+  const controlesPac = controles
     .filter(c => c.pacienteId === pacienteId)
     .sort((a,b) => new Date(b.fechaControl) - new Date(a.fechaControl));
   if (controlesPac.length === 0) { container.innerHTML = '<div class="empty">Sin controles.</div>'; return; }
@@ -3611,7 +3611,7 @@ async function renderListaProfesionalesEn(targetId) {
   const lista = document.getElementById(`lista-prof-${targetId}`);
   let html = '';
   profesionales.forEach(p => {
-    cantControles = controles.filter(c=>c.profesionalId===p.id).length;
+    const cantControles = controles.filter(c=>c.profesionalId===p.id).length;
     html += `
       <div class="list-row">
         <div>
@@ -3633,8 +3633,8 @@ async function renderListaProfesionalesEn(targetId) {
 
   document.querySelectorAll('.btn-del-prof').forEach(btn => {
     btn.addEventListener('click', async () => {
-      id = btn.dataset.id;
-      cant = controles.filter(c=>c.profesionalId===id).length;
+      const id = btn.dataset.id;
+      const cant = controles.filter(c=>c.profesionalId===id).length;
       if (cant > 0) { alert(`No se puede eliminar: tiene ${cant} control(es) asociado(s).`); return; }
       await eliminarProfesional_(id);
       renderListaProfesionalesEn(btn.dataset.target);
@@ -3924,7 +3924,7 @@ function renderTablaInvestigacion() {
 }
 
 function descargarCSV(headers, rows, filename) {
-  csv = [headers.join(','), ...rows].join('\n');
+  const csv = [headers.join(','), ...rows].join('\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3980,7 +3980,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 function renderPacienteView() {
   const view = document.getElementById('view-paciente');
   const pacienteActivo = pacienteLogueado;
-  controlesPac = controles.filter(c=>c.pacienteId===pacienteActivo.id);
+  const controlesPac = controles.filter(c=>c.pacienteId===pacienteActivo.id);
   if (controlesPac.length === 0) {
     view.innerHTML = `
       <div style="text-align:center; padding:2rem 1rem; color:var(--mr-text-muted);">
@@ -3989,7 +3989,7 @@ function renderPacienteView() {
       </div>`;
     return;
   }
-  controlActivo = controlesPac.reduce((a,b)=>new Date(a.fechaControl)>new Date(b.fechaControl)?a:b);
+  const controlActivo = controlesPac.reduce((a,b)=>new Date(a.fechaControl)>new Date(b.fechaControl)?a:b);
   const dispActivo = dispositivos.find(d=>d.id===controlActivo.dispositivoId);
   const tipo = TIPOS[dispActivo.tipo];
   const dias = diasRestantes(controlActivo.proxControl);
