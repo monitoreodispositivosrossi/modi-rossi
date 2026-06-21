@@ -2135,12 +2135,17 @@ async function renderForm() {
 
     renderDash();
 
-    const retraso = calcularRetrasoMeses(controlGuardado);
-    const riesgo = calcularRiesgo(controlGuardado);
+    let retraso = 0, riesgo = {alto:false, motivos:[]};
+    try {
+      retraso = calcularRetrasoMeses(controlGuardado);
+      riesgo  = calcularRiesgo(controlGuardado);
+    } catch(e) { console.error('calcular retraso/riesgo:', e); }
 
     // Mostrar modal de confirmación
     const overlay = document.getElementById('modal-overlay');
     const content = document.getElementById('modal-content');
+    overlay.classList.remove('show'); // resetear primero
+    void overlay.offsetHeight;        // forzar reflow
     overlay.classList.add('show');
     content.style.maxWidth = '420px';
     content.innerHTML = `
