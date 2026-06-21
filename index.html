@@ -2623,7 +2623,7 @@ function openModalVistaPaciente(pacienteId) {
     return;
   }
 
-  const controlActivo = controlesPac.reduce((a,b)=>diasRestantes(a.fechaControl)<diasRestantes(b.fechaControl)?a:b);
+  const controlActivo = controlesPac.reduce((a,b)=>diasRestantes(a.fechaControl)>diasRestantes(b.fechaControl)?a:b);
   const dispActivo = dispositivos.find(d=>d.id===controlActivo.dispositivoId);
   if (!dispActivo) {
     tmpView.innerHTML = `<div style="font-size:13px; color:var(--mr-text-muted); text-align:center; padding:1.5rem;">Sin dispositivo activo asociado.</div>`;
@@ -4155,9 +4155,13 @@ function renderPacienteView() {
       </div>`;
     return;
   }
-  const controlActivo = controlesPac.reduce((a,b)=>diasRestantes(a.fechaControl)<diasRestantes(b.fechaControl)?a:b);
+  const controlActivo = controlesPac.reduce((a,b)=>diasRestantes(a.fechaControl)>diasRestantes(b.fechaControl)?a:b);
   const dispActivo = dispositivos.find(d=>d.id===controlActivo.dispositivoId);
-  const tipo = TIPOS[dispActivo.tipo];
+  if (!dispActivo) {
+    view.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--mr-text-muted);">Sin dispositivo activo asociado. Comunicate con el servicio.</div>';
+    return;
+  }
+  const tipo = TIPOS[dispActivo.tipo] || {nombre:'Dispositivo'};
   const dias = diasRestantes(controlActivo.proxControl);
   const vencido = dias < 0;
   const proximo30 = dias >= 0 && dias <= VENTANA_DIAS;
