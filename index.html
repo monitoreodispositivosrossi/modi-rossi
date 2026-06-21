@@ -4093,8 +4093,11 @@ function getDatosInvestigacion() {
     const disp = dispositivos.find(d=>d.id===c.dispositivoId);
     const tipo = disp ? (TIPOS[disp.tipo] || {nombre:disp.tipo||'?',lapso:12}) : null;
     const riesgo = calcularRiesgo(c);
-    const retrasoDias = calcularRetrasoDias(c);
-    const retrasoAjustado = calcularRetrasoAjustado(c);
+    // Determinar si es el primer control del dispositivo (sin referencia previa)
+    const ctrlsAnteriores = controles.filter(x => x.pacienteId===c.pacienteId && x.dispositivoId===c.dispositivoId && diasRestantes(x.fechaControl) > diasRestantes(c.fechaControl));
+    const esPrimerControl = ctrlsAnteriores.length === 0;
+    const retrasoDias    = esPrimerControl ? null : calcularRetrasoDias(c);
+    const retrasoAjustado= esPrimerControl ? null : calcularRetrasoAjustado(c);
     const accion = accionesContacto.filter(ac => ac.controlId === c.id).slice(-1)[0];
     const incompleto = datosIncompletos(c);
     return {
@@ -4108,7 +4111,8 @@ function getDatosInvestigacion() {
       fechaRealizada: c.fechaControl,
       retrasoDias,
       retrasoAjustado,
-      adherente: esAdherente(c) ? 'Sí' : 'No',
+      esPrimerControl,
+      adherente: esPrimerControl ? 'N/A' : (esAdherente(c) ? 'Sí' : 'No'),
       vidaBateria: fmtVidaBateria(c),
       vidaBateriaMeses: vidaBateriaMeses(c),
       riesgo: riesgo.alto ? 'Alto' : 'Bajo',
@@ -4169,8 +4173,8 @@ function renderTablaInvestigacion() {
         <td>${d.fase}</td>
         <td>${fmtDate(d.fechaProgramada)}</td>
         <td>${fmtDate(d.fechaRealizada)}</td>
-        <td>${d.retrasoDias}</td>
-        <td>${d.retrasoAjustado}</td>
+        <td>${d.esPrimerControl ? '-' : d.retrasoDias}</td>
+        <td>${d.esPrimerControl ? '-' : d.retrasoAjustado}</td>
         <td>${d.adherente}</td>
         <td>${d.vidaBateria}</td>
         <td><span class="risk-badge ${d.riesgo==='Alto'?'risk-alto':'risk-bajo'}">${d.riesgo}</span></td>
@@ -4207,7 +4211,7 @@ function exportarCSV() {
   const headers = ['codigo_paciente','tipo_registro','sexo','edad','tipo_dispositivo','fase','fecha_programada','fecha_realizada','retraso_dias','retraso_dias_ajustado','adherente_30dias','vida_bateria','vida_bateria_meses','riesgo','motivos_riesgo','seguimiento_perdido','accion_contacto','apto_analisis','motivo_exclusion','fecha_carga'];
   const rows = datos.map(d => [
     d.codigo, d.tipoRegistro, d.sexo, d.edad, d.tipoDispositivo, d.fase, toInputDate(d.fechaProgramada), toInputDate(d.fechaRealizada),
-    d.retrasoDias, d.retrasoAjustado, d.adherente, `"${d.vidaBateria}"`, d.vidaBateriaMeses, d.riesgo, `"${d.motivos}"`, d.seguimientoPerdido, `"${d.accion}"`, d.aptoAnalisis, `"${d.motivoExclusion}"`, `"${fmtDateTime(d.fechaCarga)}"`
+    (d.esPrimerControl ? '-' : d.retrasoDias), (d.esPrimerControl ? '-' : d.retrasoAjustado), d.adherente, `"${d.vidaBateria}"`, d.vidaBateriaMeses, d.riesgo, `"${d.motivos}"`, d.seguimientoPerdido, `"${d.accion}"`, d.aptoAnalisis, `"${d.motivoExclusion}"`, `"${fmtDateTime(d.fechaCarga)}"`
   ].join(','));
   descargarCSV(headers, rows, 'modi_rossi_datos_investigacion.csv');
 }
