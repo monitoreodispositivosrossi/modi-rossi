@@ -2077,8 +2077,8 @@ async function renderForm() {
       };
       const _rCtrl = await guardarNuevoControl_(nuevoControl);
       nuevoControl.id = _rCtrl.id;
-      controles.push(nuevoControl);
-      controlGuardado = nuevoControl;
+      // controles.push ya lo hace guardarNuevoControl_ internamente
+      controlGuardado = controles.find(c => c.id === _rCtrl.id) || nuevoControl;
     }
 
     // Actualizar subtipo y fecha implante del dispositivo
