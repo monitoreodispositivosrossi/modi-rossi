@@ -3367,6 +3367,7 @@ function openModalEditarDispositivo(pacienteId) {
     actualizarDispositivo_(disp.id, cambiosDisp).catch(e=>console.error(e));
     closeModal();
     const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
+    const _dash = document.getElementById('view-dash'); if (_dash && _dash.style.display !== 'none') renderDash();
   });
 }
 
