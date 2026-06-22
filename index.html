@@ -2602,7 +2602,7 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
             ${historial.map(d=>`<div style="border:0.5px solid var(--mr-border); border-radius:8px; padding:0.5rem 0.8rem; background:#fff; font-size:12px; color:var(--mr-text-muted); margin-bottom:4px;">${(TIPOS[d.tipo] || {nombre:d.tipo||'?', lapso:12}).nombre} · ${d.marca} ${d.modelo}${d.fechaRecambio ? ' · Reemplazado: '+fmtDate(d.fechaRecambio) : ''}</div>`).join('')}` : ''}
         </div>
         ${(() => {
-          const ultControl = controles.filter(c=>c.pacienteId===p.id).sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl))[0];
+          const ultControl = controles.filter(c=>c.pacienteId===p.id).sort((a,b)=>diasRestantes(b.fechaControl)-diasRestantes(a.fechaControl))[0];
           if (!ultControl) return '';
           return `
           <div id="pac-linea-control-${p.id}" style="display:flex; padding:4px 1rem 8px; border-top:0.5px solid var(--mr-border); align-items:center; justify-content:space-between; cursor:pointer;" onclick="toggleControlesPaciente('${p.id}')">
