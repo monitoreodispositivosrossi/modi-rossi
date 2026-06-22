@@ -2520,7 +2520,11 @@ function bindSubtipoDisp(tipoId, configFieldId, configId) {
 }
 
 function getDispositivoActivo(pacienteId) {
-  return dispositivos.find(d=>d.pacienteId===pacienteId && d.activo);
+  // Si hay varios activos, tomar el con fecha de implante más reciente
+  const activos = dispositivos.filter(d=>d.pacienteId===pacienteId && d.activo);
+  if (activos.length === 0) return null;
+  if (activos.length === 1) return activos[0];
+  return activos.reduce((a,b) => (a.fechaImplante||'') >= (b.fechaImplante||'') ? a : b);
 }
 
 function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
@@ -3157,6 +3161,7 @@ function openModalEditarPaciente(pacienteId) {
   `;
   document.getElementById('ep-cancelar').addEventListener('click', closeModal);
   document.getElementById('ep-guardar').addEventListener('click', async () => {
+    const _btn_ep_guardar = document.getElementById('ep-guardar'); _btn_ep_guardar.disabled=true; _btn_ep_guardar.textContent='Guardando...';
     const apellido = formatearApellido(document.getElementById('ep-apellido').value.trim());
     const nombre = formatearNombre(document.getElementById('ep-nombre').value.trim());
     const dni = document.getElementById('ep-dni').value.trim();
@@ -3358,6 +3363,9 @@ function openModalEditarDispositivo(pacienteId) {
     }, 0);
   }
   document.getElementById('ed-guardar').addEventListener('click', async () => {
+    const btn = document.getElementById('ed-guardar');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
     const cambiosDisp = {
       tipo: document.getElementById('ed-tipo').value,
       marca: document.getElementById('ed-marca').value,
@@ -3966,6 +3974,7 @@ function openModalEditarProfesional(profId, targetId) {
   `;
   document.getElementById('epr-cancelar').addEventListener('click', closeModal);
   document.getElementById('epr-guardar').addEventListener('click', async () => {
+    const _btn_epr_guardar = document.getElementById('epr-guardar'); _btn_epr_guardar.disabled=true; _btn_epr_guardar.textContent='Guardando...';
     const apellido = formatearApellido(document.getElementById('epr-apellido').value.trim());
     const nombre = formatearNombre(document.getElementById('epr-nombre').value.trim());
     const dni = document.getElementById('epr-dni').value.trim();
