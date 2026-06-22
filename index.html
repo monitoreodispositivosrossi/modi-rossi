@@ -1017,10 +1017,10 @@ function getRecuperacionSeguimiento() {
 }
 
 function calcularRiesgo(c) {
-  // Buscar dispositivo del control, o el activo del paciente como fallback
-  const disp = dispositivos.find(d=>d.id===c.dispositivoId)
-    || dispositivos.find(d=>d.pacienteId===c.pacienteId && d.activo)
-    || {};
+  // Priorizar dispositivo activo del paciente para determinar el tipo actual
+  const dispActivo = dispositivos.find(d=>d.pacienteId===c.pacienteId && d.activo);
+  const dispControl = dispositivos.find(d=>d.id===c.dispositivoId);
+  const disp = dispActivo || dispControl || {};
   const retraso = calcularRetrasoMeses(c);
   // También considerar si el próximo control lleva mucho tiempo vencido (paciente pendiente)
   const diasVencido = -diasRestantes(c.proxControl); // positivo si está vencido
