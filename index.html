@@ -1025,7 +1025,9 @@ function calcularRiesgo(c) {
   if (retraso >= 2) motivos.push(`Retraso de control ≥ 2 meses (${retraso} meses)`);
   if (mesesVencido >= 2) motivos.push(`Sin control hace ≥ 2 meses (${mesesVencido} meses vencido)`);
   if (eriMenorUnAnio(c)) motivos.push('Batería próxima a ERI (< 1 año)');
-  if (disp.tipo === 'T2' || disp.tipo === 'T4') motivos.push('Portador de CDI');
+  const tipoCDI = disp.tipo === 'T2' || disp.tipo === 'T4' ||
+    disp.tipo === 'CDI' || disp.tipo === 'CDI+TRC';
+  if (tipoCDI) motivos.push('Portador de CDI');
   if (c.riesgoManual) motivos.push('Criterio del equipo tratante');
   return {alto: motivos.length > 0, motivos};
 }
