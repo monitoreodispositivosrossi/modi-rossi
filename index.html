@@ -2075,8 +2075,10 @@ async function renderForm() {
     }
 
     const fechaControl = parseLocalDate(fechaControlVal);
-    const meses = parseInt(mesesVal);
+    const meses = parseInt(mesesVal) || 0;
+    const semanas = parseInt(document.getElementById('f-proxsemanas')?.value) || 0;
     const proxControl = new Date(addMonths(fechaControl, meses).getTime() + semanas * 7 * 86400000);
+    const proxMesesTotal = meses + semanas * 0.5;
 
     const dispositivoId = document.getElementById('f-dispositivo').value;
 
